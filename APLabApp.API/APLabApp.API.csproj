@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>554a6168-d6ba-4b8b-924e-02b3d198a5dd</UserSecretsId>
+    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+  </PropertyGroup>
+
+	<ItemGroup>
+		<!-- Aspire klijentska auth ekstenzija za Keycloak (AddKeycloakJwtBearer) -->
+		<PackageReference Include="Aspire.Keycloak.Authentication" Version="9.5.2-preview.1.25522.3" />
+
+		<!-- OpenAPI helper -->
+		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.10" />
+
+		<!-- EF Core RUNTIME (obavezno za AddDbContext i registraciju konteksta) -->
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.10" />
+
+		<!-- EF Core DESIGN (za migracije, može ostati kao PrivateAssets) -->
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.10">
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+			<PrivateAssets>all</PrivateAssets>
+		</PackageReference>
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.10" />
+
+		<!-- Npgsql provider (zbog UseNpgsql) -->
+		<PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+
+		<PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.22.1" />
+
+		<PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.6" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\APLabApp.Dal\APLabApp.Dal.csproj" />
+		<ProjectReference Include="..\APLabApp.Bll\APLabApp.Bll.csproj" />
+		<ProjectReference Include="..\APLabApp.ServiceDefaults\APLabApp.ServiceDefaults.csproj" />
+	</ItemGroup>
+</Project>
