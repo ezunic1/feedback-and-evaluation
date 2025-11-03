@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace APLabApp.DAL.Entities
+namespace APLabApp.Dal.Entities
 {
     public class Season
     {

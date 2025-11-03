@@ -16,7 +16,7 @@ namespace APLabApp.Dal.Entities
         public Guid KeycloakId { get; set; }         
         public string FullName { get; set; } = null!;
         public string? Desc { get; set; }
-       public string? Email { get; set; }
+        public string? Email { get; set; }
         public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     }
 }

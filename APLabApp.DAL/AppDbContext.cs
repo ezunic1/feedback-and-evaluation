@@ -18,6 +18,7 @@ namespace APLabApp.Dal
         }
 
         public DbSet<User> Users => Set<User>();
+        public DbSet<Season> Seasons => Set<Season>();
         //public DbSet<Season> Seasons => Set<Season>();
         /* public DbSet<Session> Sessions => Set<Session>();
          public DbSet<Feedback> Feedbacks => Set<Feedback>();
