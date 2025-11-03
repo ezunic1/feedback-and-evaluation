@@ -1,58 +1,68 @@
-﻿using APLabApp.BLL.Users;
+﻿using APLabApp.Dal.Repositories;
+using APLabApp.BLL.Auth;
 using APLabApp.Dal.Entities;
-using APLabApp.Dal.Repositories;
 
-namespace APLabApp.BLL;
+namespace APLabApp.BLL.Users;
 
 public class UserService : IUserService
 {
     private readonly IUserRepository _repo;
-    public UserService(IUserRepository repo) => _repo = repo;
+    private readonly IKeycloakAdminService _kc;
+
+    public UserService(IUserRepository repo, IKeycloakAdminService kc)
+    {
+        _repo = repo;
+        _kc = kc;
+    }
 
     public async Task<IReadOnlyList<UserDto>> GetAllAsync(CancellationToken ct)
-        => (await _repo.GetAllAsync(ct)).Select(ToDto).ToList();
+        => (await _repo.GetAllAsync(ct)).Select(UserMappings.FromEntity).ToList();
 
     public async Task<UserDto?> GetByIdAsync(Guid id, CancellationToken ct)
-        => await _repo.GetByIdAsync(id, ct) is { } u ? ToDto(u) : null;
+    {
+        var e = await _repo.GetByIdAsync(id, ct);
+        return e is null ? null : UserMappings.FromEntity(e);
+    }
 
     public async Task<UserDto> CreateAsync(CreateUserRequest req, CancellationToken ct)
     {
-        var u = new User
-        {
-            KeycloakId = req.KeycloakId,
-            FullName = req.FullName.Trim(),
-            Desc = req.Desc,
-            Email = req.Email,
-            CreatedAtUtc = DateTime.UtcNow
-        };
-        await _repo.AddAsync(u, ct);
+        var e = req.ToEntity();
+        await _repo.AddAsync(e, ct);
         await _repo.SaveChangesAsync(ct);
-        return ToDto(u);
+        return UserMappings.FromEntity(e);
     }
 
     public async Task<UserDto?> UpdateAsync(Guid id, UpdateUserRequest req, CancellationToken ct)
     {
-        var u = await _repo.GetByIdAsync(id, ct);
-        if (u is null) return null;
-
-        if (!string.IsNullOrWhiteSpace(req.FullName)) u.FullName = req.FullName.Trim();
-        u.Desc = req.Desc;
-        u.Email = req.Email;
-
-        await _repo.UpdateAsync(u, ct);
+        var e = await _repo.GetByIdAsync(id, ct);
+        if (e is null) return null;
+        req.Apply(e);
+        await _repo.UpdateAsync(e, ct);
         await _repo.SaveChangesAsync(ct);
-        return ToDto(u);
+        return UserMappings.FromEntity(e);
     }
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
     {
-        var u = await _repo.GetByIdAsync(id, ct);
-        if (u is null) return false;
-        await _repo.DeleteAsync(u, ct);
+        var e = await _repo.GetByIdAsync(id, ct);
+        if (e is null) return false;
+        await _repo.DeleteAsync(e, ct);
         await _repo.SaveChangesAsync(ct);
         return true;
     }
 
-    private static UserDto ToDto(User u) =>
-        new(u.Id, u.KeycloakId, u.FullName, u.Desc, u.Email, u.CreatedAtUtc);
+    public async Task<bool> ChangePasswordAsync(Guid id, string newPassword, string? currentPassword, CancellationToken ct)
+    {
+        var e = await _repo.GetByIdAsync(id, ct);
+        if (e is null || e.KeycloakId == Guid.Empty) return false;
+
+        if (!string.IsNullOrWhiteSpace(currentPassword))
+        {
+            if (string.IsNullOrWhiteSpace(e.Email)) return false;
+            var ok = await _kc.VerifyUserPasswordAsync(e.Email!, currentPassword!, ct);
+            if (!ok) return false;
+        }
+
+        return await _kc.ResetPasswordAsync(e.KeycloakId, newPassword, ct);
+    }
 }

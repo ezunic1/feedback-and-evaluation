@@ -19,24 +19,30 @@ var postgres = builder.AddPostgres("postgres", username, password)
 
 var apLabDb = postgres.AddDatabase("APDB");
 
-//keycloak
 var keycloak = builder.AddKeycloak("keycloak", 8080)
     .WithDataVolume("aplab-keycloak-data")
-    .WithEnvironment("KEYCLOAK_ADMIN", "admin")
-    .WithEnvironment("KEYCLOAK_ADMIN_PASSWORD", "admin")
-    .WithEndpoint("http", e => {
+    .WithEndpoint("http", e =>
+    {
         e.Port = 8080;
         e.TargetPort = 8080;
         e.IsProxied = false;
-    });
+    })
+   
+    .WithEnvironment("KC_BOOTSTRAP_ADMIN_USERNAME", "admin")
+    .WithEnvironment("KC_BOOTSTRAP_ADMIN_PASSWORD", "admin")
+    .WithArgs(
+        
+        "--bootstrap-admin-username=admin",
+        "--bootstrap-admin-password=admin",
+        "--hostname-strict=false",
+        "--http-enabled=true"
+    );
 
 
-
-// migration service
 var migrator = builder.AddProject<Projects.APLabApp_MigrationService>("migration-worker")
     .WithReference(apLabDb)
     .WaitFor(apLabDb);
-// api
+
 builder.AddProject<Projects.APLabApp_API>("aplabapp-api")
     .WithReference(apLabDb)
     .WithReference(keycloak)
