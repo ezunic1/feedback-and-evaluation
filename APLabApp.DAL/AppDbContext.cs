@@ -32,6 +32,7 @@ namespace APLabApp.Dal
 
             // Lowercase table names
             modelBuilder.Entity<User>().ToTable("users");
+           // modelBuilder.Entity<Season>().ToTable("seasons");
             /*modelBuilder.Entity<Session>().ToTable("sessions");
             modelBuilder.Entity<Feedback>().ToTable("feedbacks");
             modelBuilder.Entity<Grade>().ToTable("grades");

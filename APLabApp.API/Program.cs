@@ -1,8 +1,8 @@
+using System.IdentityModel.Tokens.Jwt;
 using APLabApp.BLL.Auth;
 using APLabApp.BLL.Users;
 using APLabApp.Dal;
 using APLabApp.Dal.Repositories;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Logging;
@@ -13,21 +13,19 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
-
-var keycloakAuthority = builder.Configuration["Keycloak:Authority"]
-    ?? "http://localhost:8080/realms/ApLabRealm"; 
+var realm = builder.Configuration["Keycloak:Realm"] ?? "ApLabRealm";
+var authUrl = (builder.Configuration["Keycloak:AuthServerUrl"] ?? "http://localhost:8080").TrimEnd('/');
+var keycloakAuthority = builder.Configuration["Keycloak:Authority"] ?? $"{authUrl}/realms/{realm}";
 
 var validAudiences = new[]
 {
     builder.Configuration["Keycloak:Audience"],
     builder.Configuration["Keycloak:ClientId"],
-    "aplab-api",   
-    "account"      
+    "aplab-api"
 }
 .Where(s => !string.IsNullOrWhiteSpace(s))!
 .Distinct()
 .ToArray();
-
 
 builder.Services.AddDbContext<AppDbContext>(o =>
     o.UseNpgsql(builder.Configuration.GetConnectionString("APDB")));
@@ -38,6 +36,8 @@ builder.Services.AddHttpClient<IKeycloakAdminService, KeycloakAdminService>();
 
 builder.Services.AddControllers();
 
+JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
+
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -45,19 +45,19 @@ builder.Services
         options.Authority = keycloakAuthority;
         options.MetadataAddress = $"{keycloakAuthority.TrimEnd('/')}/.well-known/openid-configuration";
         options.RequireHttpsMetadata = false;
+
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
             ValidIssuer = keycloakAuthority.TrimEnd('/'),
-
             ValidateAudience = true,
             ValidAudiences = validAudiences,
-
+            NameClaimType = "preferred_username",
+            RoleClaimType = "roles",
             ClockSkew = TimeSpan.FromMinutes(2)
         };
 
         options.MapInboundClaims = false;
-
 
         options.Events = new JwtBearerEvents
         {
@@ -73,14 +73,15 @@ builder.Services
             },
             OnTokenValidated = ctx =>
             {
-                Console.WriteLine($"[JWT] Token OK for sub={ctx.Principal?.FindFirst("sub")?.Value}");
+                var sub = ctx.Principal?.FindFirst("sub")?.Value;
+                var roles = string.Join(",", ctx.Principal?.FindAll("roles")?.Select(c => c.Value) ?? Array.Empty<string>());
+                Console.WriteLine($"[JWT] Token OK for sub={sub} roles=[{roles}]");
                 return Task.CompletedTask;
             }
         };
     });
 
 builder.Services.AddAuthorization();
-
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -96,7 +97,20 @@ builder.Services.AddSwaggerGen(c =>
         Description = "Unesi samo JWT (bez 'Bearer '). Swagger dodaje prefiks."
     };
     c.AddSecurityDefinition("Bearer", scheme);
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement { { scheme, Array.Empty<string>() } });
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new string[] {}
+        }
+    });
 });
 
 IdentityModelEventSource.ShowPII = true;
@@ -112,10 +126,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
-
 app.Run();

@@ -26,9 +26,23 @@ public class UserService : IUserService
 
     public async Task<UserDto> CreateAsync(CreateUserRequest req, CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(req.FullName))
+            throw new ArgumentException("FullName is required.");
+        if (string.IsNullOrWhiteSpace(req.Email))
+            throw new ArgumentException("Email is required.");
+
+        var username = req.Email!.Split('@')[0];
+        var defaultPassword = "ChangeMe123!";
+        var defaultRole = "intern";
+
+        var keycloakId = await _kc.CreateUserAsync(username, req.Email!, req.FullName, defaultPassword, defaultRole, ct);
+
         var e = req.ToEntity();
+        e.KeycloakId = keycloakId ?? Guid.Empty;
+
         await _repo.AddAsync(e, ct);
         await _repo.SaveChangesAsync(ct);
+
         return UserMappings.FromEntity(e);
     }
 

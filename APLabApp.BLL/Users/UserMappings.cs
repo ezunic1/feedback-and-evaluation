@@ -8,15 +8,17 @@ public static class UserMappings
         new UserDto(e.Id, e.KeycloakId, e.FullName, e.Desc, e.Email, e.CreatedAtUtc);
 
     public static User ToEntity(this CreateUserRequest req) =>
-        new User
-        {
-            Id = Guid.NewGuid(),
-            KeycloakId = req.KeycloakId,
-            FullName = req.FullName,
-            Desc = req.Desc,
-            Email = req.Email,
-            CreatedAtUtc = DateTime.UtcNow
-        };
+    new User
+    {
+        Id = Guid.NewGuid(),
+        KeycloakId = req.KeycloakId ?? Guid.Empty,
+        FullName = req.FullName,
+        Desc = req.Desc,
+        Email = req.Email,
+        CreatedAtUtc = DateTime.UtcNow
+    };
+    
+
 
     public static void Apply(this UpdateUserRequest req, User e)
     {

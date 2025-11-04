@@ -22,6 +22,54 @@ public class KeycloakAdminService : IKeycloakAdminService
         _clientSecret = cfg["Keycloak:ClientSecret"] ?? "";
     }
 
+    public async Task<Guid?> CreateUserAsync(string username, string email, string fullName, string password, string role, CancellationToken ct)
+    {
+        var token = await GetClientCredentialsToken(ct);
+        if (token is null) return null;
+
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var url = $"{_baseUrl}/admin/realms/{_realm}/users";
+        var (firstName, lastName) = SplitFullName(fullName);
+
+        var payload = new
+        {
+            username,
+            email,
+            firstName,
+            lastName,
+            enabled = true,
+            emailVerified = true
+        };
+
+        var resp = await _http.PostAsync(url, new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"), ct);
+        if (!resp.IsSuccessStatusCode) return null;
+
+        var location = resp.Headers.Location?.ToString();
+        if (string.IsNullOrWhiteSpace(location)) return null;
+
+        var id = location.Split('/').LastOrDefault();
+        if (!Guid.TryParse(id, out var keycloakId)) return null;
+
+        var pwdPayload = new { type = "password", value = password, temporary = false };
+        await _http.PutAsync($"{url}/{keycloakId}/reset-password", new StringContent(JsonSerializer.Serialize(pwdPayload), Encoding.UTF8, "application/json"), ct);
+
+        if (!string.IsNullOrWhiteSpace(role))
+        {
+            var roleResp = await _http.GetAsync($"{_baseUrl}/admin/realms/{_realm}/roles/{role}", ct);
+            if (roleResp.IsSuccessStatusCode)
+            {
+                var roleBody = await roleResp.Content.ReadAsStringAsync(ct);
+                var roleObj = JsonDocument.Parse(roleBody).RootElement;
+                var arr = new[] { roleObj };
+                var roleJson = JsonSerializer.Serialize(arr);
+                await _http.PostAsync($"{url}/{keycloakId}/role-mappings/realm", new StringContent(roleJson, Encoding.UTF8, "application/json"), ct);
+            }
+        }
+
+        return keycloakId;
+    }
+
     public async Task<bool> ResetPasswordAsync(Guid keycloakUserId, string newPassword, CancellationToken ct)
     {
         var token = await GetClientCredentialsToken(ct);
@@ -60,5 +108,16 @@ public class KeycloakAdminService : IKeycloakAdminService
         if (!resp.IsSuccessStatusCode) return null;
         using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
         return doc.RootElement.GetProperty("access_token").GetString();
+    }
+
+    private static (string, string) SplitFullName(string fullName)
+    {
+        var parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length switch
+        {
+            >= 2 => (parts[0], string.Join(' ', parts.Skip(1))),
+            1 => (parts[0], ""),
+            _ => ("", "")
+        };
     }
 }
