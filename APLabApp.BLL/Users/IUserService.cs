@@ -8,4 +8,5 @@ public interface IUserService
     Task<UserDto?> UpdateAsync(Guid id, UpdateUserRequest req, CancellationToken ct);
     Task<bool> DeleteAsync(Guid id, CancellationToken ct);
     Task<bool> ChangePasswordAsync(Guid id, string newPassword, string? currentPassword, CancellationToken ct);
+    Task<UserDto> CreateGuestAsync(CreateUserRequest req, string password, CancellationToken ct);
 }

@@ -79,4 +79,19 @@ public class UserService : IUserService
 
         return await _kc.ResetPasswordAsync(e.KeycloakId, newPassword, ct);
     }
+
+    public async Task<UserDto> CreateGuestAsync(CreateUserRequest req, string password, CancellationToken ct)
+    {
+        var username = req.Email.Split('@')[0];
+        var keycloakId = await _kc.CreateUserAsync(username, req.Email, req.FullName, password, "guest", ct);
+
+        var entity = req.ToEntity();
+        entity.KeycloakId = keycloakId ?? Guid.Empty;
+
+        await _repo.AddAsync(entity, ct);
+        await _repo.SaveChangesAsync(ct);
+
+        return UserMappings.FromEntity(entity);
+    }
+
 }
