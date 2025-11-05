@@ -1,0 +1,159 @@
+﻿using APLabApp.BLL.Seasons;
+using APLabApp.BLL.Users;
+using APLabApp.Dal.Entities;
+using APLabApp.Dal.Repositories;
+
+namespace APLabApp.BLL.Seasons
+{
+    public class SeasonService : ISeasonService
+    {
+        private readonly ISeasonRepository _seasons;
+        private readonly IUserRepository _users;
+
+        public SeasonService(ISeasonRepository seasons, IUserRepository users)
+        {
+            _seasons = seasons;
+            _users = users;
+        }
+
+        public async Task<IReadOnlyList<SeasonDto>> GetAllAsync(CancellationToken ct)
+        {
+            var list = await _seasons.GetAllAsync(ct);
+            return list.Select(SeasonMappings.FromEntity).ToList();
+        }
+
+        public async Task<SeasonDto?> GetByIdAsync(int id, bool includeUsers, CancellationToken ct)
+        {
+            var s = await _seasons.GetByIdAsync(id, ct, includeUsers);
+            return s is null ? null : SeasonMappings.FromEntity(s);
+        }
+
+        public async Task<SeasonDto> CreateAsync(CreateSeasonRequest req, CancellationToken ct)
+        {
+            if (req.StartDate >= req.EndDate) throw new ArgumentException("StartDate must be before EndDate.");
+
+            User? mentor = null;
+            if (req.MentorId.HasValue)
+            {
+                mentor = await _users.GetByIdAsync(req.MentorId.Value, ct);
+                if (mentor is null) throw new InvalidOperationException("Mentor not found.");
+            }
+
+            var entity = new Season
+            {
+                Name = req.Name,
+                StartDate = req.StartDate,
+                EndDate = req.EndDate,
+                MentorId = req.MentorId
+            };
+
+            await _seasons.AddAsync(entity, ct);
+            await _seasons.SaveChangesAsync(ct);
+
+            var created = await _seasons.GetByIdAsync(entity.Id, ct, false);
+            return SeasonMappings.FromEntity(created!);
+        }
+
+        public async Task<SeasonDto?> UpdateAsync(int id, UpdateSeasonRequest req, CancellationToken ct)
+        {
+            var s = await _seasons.GetByIdAsync(id, ct, false);
+            if (s is null) return null;
+
+            if (req.Name is not null) s.Name = req.Name;
+            if (req.StartDate.HasValue) s.StartDate = req.StartDate.Value;
+            if (req.EndDate.HasValue) s.EndDate = req.EndDate.Value;
+            if (req.StartDate.HasValue || req.EndDate.HasValue)
+            {
+                if (s.StartDate >= s.EndDate) throw new ArgumentException("StartDate must be before EndDate.");
+            }
+
+            if (req.MentorId != s.MentorId)
+            {
+                if (req.MentorId.HasValue)
+                {
+                    var mentor = await _users.GetByIdAsync(req.MentorId.Value, ct);
+                    if (mentor is null) throw new InvalidOperationException("Mentor not found.");
+                }
+                s.MentorId = req.MentorId;
+            }
+
+            await _seasons.UpdateAsync(s, ct);
+            await _seasons.SaveChangesAsync(ct);
+
+            var updated = await _seasons.GetByIdAsync(s.Id, ct, false);
+            return SeasonMappings.FromEntity(updated!);
+        }
+
+        public async Task<bool> DeleteAsync(int id, CancellationToken ct)
+        {
+            var s = await _seasons.GetByIdAsync(id, ct, true);
+            if (s is null) return false;
+
+            foreach (var u in s.Users.ToList())
+            {
+                u.SeasonId = null;
+            }
+
+            await _seasons.DeleteAsync(s, ct);
+            await _seasons.SaveChangesAsync(ct);
+            return true;
+        }
+
+        public async Task<bool> AssignMentorAsync(int id, Guid? mentorId, CancellationToken ct)
+        {
+            var s = await _seasons.GetByIdAsync(id, ct, false);
+            if (s is null) return false;
+
+            if (mentorId.HasValue)
+            {
+                var mentor = await _users.GetByIdAsync(mentorId.Value, ct);
+                if (mentor is null) throw new InvalidOperationException("Mentor not found.");
+                s.MentorId = mentorId;
+            }
+            else
+            {
+                s.MentorId = null;
+            }
+
+            await _seasons.UpdateAsync(s, ct);
+            await _seasons.SaveChangesAsync(ct);
+            return true;
+        }
+
+        public async Task<bool> AddUserAsync(int id, Guid userId, CancellationToken ct)
+        {
+            var s = await _seasons.GetByIdAsync(id, ct, false);
+            if (s is null) return false;
+
+            var u = await _users.GetByIdAsync(userId, ct);
+            if (u is null) throw new InvalidOperationException("User not found.");
+
+            u.SeasonId = id;
+            await _users.UpdateAsync(u, ct);
+            await _users.SaveChangesAsync(ct);
+            return true;
+        }
+
+        public async Task<bool> RemoveUserAsync(int id, Guid userId, CancellationToken ct)
+        {
+            var s = await _seasons.GetByIdAsync(id, ct, false);
+            if (s is null) return false;
+
+            var u = await _users.GetByIdAsync(userId, ct);
+            if (u is null) throw new InvalidOperationException("User not found.");
+            if (u.SeasonId != id) return false;
+
+            u.SeasonId = null;
+            await _users.UpdateAsync(u, ct);
+            await _users.SaveChangesAsync(ct);
+            return true;
+        }
+
+        public async Task<IReadOnlyList<UserDto>> GetUsersAsync(int id, CancellationToken ct)
+        {
+            var s = await _seasons.GetByIdAsync(id, ct, true);
+            if (s is null) return Array.Empty<UserDto>();
+            return s.Users.Select(UserMappings.FromEntity).ToList();
+        }
+    }
+}
