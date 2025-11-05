@@ -1,8 +1,13 @@
-﻿namespace APLabApp.BLL.Auth;
+﻿using System;
+using System.Threading;
+using System.Threading.Tasks;
 
-public interface IKeycloakAdminService
+namespace APLabApp.BLL.Auth
 {
-    Task<Guid?> CreateUserAsync(string username, string email, string fullName, string password, string role, CancellationToken ct);
-    Task<bool> ResetPasswordAsync(Guid keycloakUserId, string newPassword, CancellationToken ct);
-    Task<bool> VerifyUserPasswordAsync(string username, string password, CancellationToken ct);
+    public interface IKeycloakAdminService
+    {
+        Task<Guid?> CreateUserAsync(string username, string email, string fullName, string password, string role, CancellationToken ct);
+        Task<bool> ResetPasswordAsync(Guid keycloakUserId, string newPassword, CancellationToken ct);
+        Task<bool> VerifyUserPasswordAsync(string username, string password, CancellationToken ct);
+    }
 }

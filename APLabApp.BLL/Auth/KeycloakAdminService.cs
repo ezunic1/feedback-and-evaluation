@@ -29,7 +29,7 @@ public class KeycloakAdminService : IKeycloakAdminService
 
         _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-        var url = $"{_baseUrl}/admin/realms/{_realm}/users";
+        var usersUrl = $"{_baseUrl}/admin/realms/{_realm}/users";
         var (firstName, lastName) = SplitFullName(fullName);
 
         var payload = new
@@ -42,17 +42,30 @@ public class KeycloakAdminService : IKeycloakAdminService
             emailVerified = true
         };
 
-        var resp = await _http.PostAsync(url, new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"), ct);
-        if (!resp.IsSuccessStatusCode) return null;
+        var resp = await _http.PostAsync(usersUrl, new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"), ct);
 
-        var location = resp.Headers.Location?.ToString();
-        if (string.IsNullOrWhiteSpace(location)) return null;
+        string? idStr = null;
 
-        var id = location.Split('/').LastOrDefault();
-        if (!Guid.TryParse(id, out var keycloakId)) return null;
+        if (resp.IsSuccessStatusCode)
+        {
+            var location = resp.Headers.Location?.ToString();
+            if (!string.IsNullOrWhiteSpace(location))
+                idStr = location.Split('/').LastOrDefault();
+        }
+        else if ((int)resp.StatusCode == 409)
+        {
+            var found = await FindUserIdByUsernameOrEmail(username, email, ct);
+            if (found.HasValue) idStr = found.Value.ToString();
+        }
+        else
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(idStr) || !Guid.TryParse(idStr, out var keycloakId)) return null;
 
         var pwdPayload = new { type = "password", value = password, temporary = false };
-        await _http.PutAsync($"{url}/{keycloakId}/reset-password", new StringContent(JsonSerializer.Serialize(pwdPayload), Encoding.UTF8, "application/json"), ct);
+        await _http.PutAsync($"{usersUrl}/{keycloakId}/reset-password", new StringContent(JsonSerializer.Serialize(pwdPayload), Encoding.UTF8, "application/json"), ct);
 
         if (!string.IsNullOrWhiteSpace(role))
         {
@@ -60,10 +73,31 @@ public class KeycloakAdminService : IKeycloakAdminService
             if (roleResp.IsSuccessStatusCode)
             {
                 var roleBody = await roleResp.Content.ReadAsStringAsync(ct);
-                var roleObj = JsonDocument.Parse(roleBody).RootElement;
-                var arr = new[] { roleObj };
-                var roleJson = JsonSerializer.Serialize(arr);
-                await _http.PostAsync($"{url}/{keycloakId}/role-mappings/realm", new StringContent(roleJson, Encoding.UTF8, "application/json"), ct);
+                using var roleDoc = JsonDocument.Parse(roleBody);
+                var roleName = roleDoc.RootElement.GetProperty("name").GetString();
+
+                var assignedResp = await _http.GetAsync($"{usersUrl}/{keycloakId}/role-mappings/realm", ct);
+                var alreadyAssigned = false;
+                if (assignedResp.IsSuccessStatusCode)
+                {
+                    var arrText = await assignedResp.Content.ReadAsStringAsync(ct);
+                    using var arrDoc = JsonDocument.Parse(arrText);
+                    foreach (var el in arrDoc.RootElement.EnumerateArray())
+                    {
+                        if (el.TryGetProperty("name", out var n) && n.GetString() == roleName)
+                        {
+                            alreadyAssigned = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!alreadyAssigned)
+                {
+                    var arr = new[] { roleDoc.RootElement };
+                    var roleJson = JsonSerializer.Serialize(arr);
+                    await _http.PostAsync($"{usersUrl}/{keycloakId}/role-mappings/realm", new StringContent(roleJson, Encoding.UTF8, "application/json"), ct);
+                }
             }
         }
 
@@ -119,5 +153,34 @@ public class KeycloakAdminService : IKeycloakAdminService
             1 => (parts[0], ""),
             _ => ("", "")
         };
+    }
+
+    private async Task<Guid?> FindUserIdByUsernameOrEmail(string username, string email, CancellationToken ct)
+    {
+        var r1 = await _http.GetAsync($"{_baseUrl}/admin/realms/{_realm}/users?username={Uri.EscapeDataString(username)}&exact=true", ct);
+        if (r1.IsSuccessStatusCode)
+        {
+            var body = await r1.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.ValueKind == JsonValueKind.Array && doc.RootElement.GetArrayLength() > 0)
+            {
+                var idStr = doc.RootElement[0].GetProperty("id").GetString();
+                if (Guid.TryParse(idStr, out var id)) return id;
+            }
+        }
+
+        var r2 = await _http.GetAsync($"{_baseUrl}/admin/realms/{_realm}/users?email={Uri.EscapeDataString(email)}", ct);
+        if (r2.IsSuccessStatusCode)
+        {
+            var body = await r2.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.ValueKind == JsonValueKind.Array && doc.RootElement.GetArrayLength() > 0)
+            {
+                var idStr = doc.RootElement[0].GetProperty("id").GetString();
+                if (Guid.TryParse(idStr, out var id)) return id;
+            }
+        }
+
+        return null;
     }
 }

@@ -1,5 +1,5 @@
-using System.IdentityModel.Tokens.Jwt;
 using APLabApp.BLL.Auth;
+using APLabApp.BLL.Seasons;
 using APLabApp.BLL.Users;
 using APLabApp.Dal;
 using APLabApp.Dal.Repositories;
@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.IdentityModel.Tokens.Jwt;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,11 +22,13 @@ var validAudiences = new[]
 {
     builder.Configuration["Keycloak:Audience"],
     builder.Configuration["Keycloak:ClientId"],
-    "aplab-api"
+    "aplab-api",
+    "account" 
 }
 .Where(s => !string.IsNullOrWhiteSpace(s))!
 .Distinct()
 .ToArray();
+
 
 builder.Services.AddDbContext<AppDbContext>(o =>
     o.UseNpgsql(builder.Configuration.GetConnectionString("APDB")));
@@ -33,6 +36,9 @@ builder.Services.AddDbContext<AppDbContext>(o =>
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddHttpClient<IKeycloakAdminService, KeycloakAdminService>();
+builder.Services.AddScoped<ISeasonRepository, SeasonRepository>();
+builder.Services.AddScoped<ISeasonService, SeasonService>();
+
 
 builder.Services.AddControllers();
 

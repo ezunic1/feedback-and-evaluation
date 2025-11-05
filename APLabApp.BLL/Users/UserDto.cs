@@ -1,5 +1,14 @@
-﻿namespace APLabApp.BLL.Users;
+﻿using System;
 
-public sealed record UserDto(
-    Guid Id, Guid KeycloakId, string FullName, string? Desc, string? Email, DateTime CreatedAtUtc
-);
+namespace APLabApp.BLL.Users
+{
+    public sealed record UserDto(
+        Guid Id,
+        Guid KeycloakId,
+        string FullName,
+        string? Desc,
+        string Email,
+        int? SeasonId,
+        DateTime CreatedAtUtc
+    );
+}

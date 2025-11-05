@@ -1,4 +1,4 @@
-﻿namespace APLabApp.BLL.Users;
-
-public sealed record CreateUserRequest(Guid? KeycloakId, string FullName, string? Desc, string? Email);
-
+﻿namespace APLabApp.BLL.Users
+{
+    public sealed record CreateUserRequest(string FullName, string Email, string? Desc, int? SeasonId);
+}

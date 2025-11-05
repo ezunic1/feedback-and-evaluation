@@ -1,7 +1,6 @@
 ﻿using APLabApp.BLL.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Threading;
 
 namespace APLabApp.Api.Controllers;
 
@@ -20,7 +19,13 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<ActionResult<UserDto>> Register([FromBody] RegisterRequest req, CancellationToken ct)
     {
-        var createReq = new CreateUserRequest(Guid.Empty, req.FullName, "Guest self-registration", req.Email);
+        var createReq = new CreateUserRequest(
+            req.FullName,
+            "Guest self-registration",
+            req.Email,
+            null
+        );
+
         var user = await _userService.CreateGuestAsync(createReq, req.Password, ct);
         return CreatedAtAction(nameof(Register), new { id = user.Id }, user);
     }

@@ -1,4 +1,3 @@
-using APLabApp.BLL;
 using APLabApp.BLL.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,7 +11,6 @@ namespace APLabApp.Api.Controllers
         private readonly IUserService _service;
         public UsersController(IUserService service) => _service = service;
 
-     
         [HttpGet]
         public async Task<ActionResult<IReadOnlyList<UserDto>>> GetAll(CancellationToken ct)
             => Ok(await _service.GetAllAsync(ct));
@@ -24,7 +22,6 @@ namespace APLabApp.Api.Controllers
             return u is null ? NotFound() : Ok(u);
         }
 
-       
         [Authorize(Roles = "admin")]
         [HttpPost]
         public async Task<ActionResult<UserDto>> Create([FromBody] CreateUserRequest req, CancellationToken ct)
