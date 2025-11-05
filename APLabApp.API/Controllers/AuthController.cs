@@ -21,8 +21,9 @@ public class AuthController : ControllerBase
     {
         var createReq = new CreateUserRequest(
             req.FullName,
-            "Guest self-registration",
             req.Email,
+            "Guest self-registration",
+            null,
             null
         );
 

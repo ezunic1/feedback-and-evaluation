@@ -10,39 +10,33 @@ public class KeycloakAdminService : IKeycloakAdminService
     private readonly HttpClient _http;
     private readonly string _realm;
     private readonly string _baseUrl;
-    private readonly string _clientId;
-    private readonly string _clientSecret;
+    private readonly string _adminClientId;
+    private readonly string _adminClientSecret;
+    private readonly string _publicClientId;
+    private readonly string _publicClientSecret;
 
     public KeycloakAdminService(HttpClient http, IConfiguration cfg)
     {
         _http = http;
         _realm = cfg["Keycloak:Realm"] ?? "ApLabRealm";
         _baseUrl = (cfg["Keycloak:AuthServerUrl"] ?? "http://localhost:8080").TrimEnd('/');
-        _clientId = cfg["Keycloak:ClientId"] ?? "aplab-api";
-        _clientSecret = cfg["Keycloak:ClientSecret"] ?? "";
+        _adminClientId = cfg["Keycloak:AdminClientId"] ?? cfg["Keycloak:ClientId"] ?? "aplab-admin";
+        _adminClientSecret = cfg["Keycloak:AdminClientSecret"] ?? cfg["Keycloak:ClientSecret"] ?? "";
+        _publicClientId = cfg["Keycloak:PublicClientId"] ?? cfg["Keycloak:ClientId"] ?? "aplab-api";
+        _publicClientSecret = cfg["Keycloak:PublicClientSecret"] ?? cfg["Keycloak:ClientSecret"] ?? "";
     }
 
     public async Task<Guid?> CreateUserAsync(string username, string email, string fullName, string password, string role, CancellationToken ct)
     {
-        var token = await GetClientCredentialsToken(ct);
-        if (token is null) return null;
-
+        var token = await GetAdminToken(ct);
         _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var usersUrl = $"{_baseUrl}/admin/realms/{_realm}/users";
         var (firstName, lastName) = SplitFullName(fullName);
+        var payload = new { username, email, firstName, lastName, enabled = true, emailVerified = true };
 
-        var payload = new
-        {
-            username,
-            email,
-            firstName,
-            lastName,
-            enabled = true,
-            emailVerified = true
-        };
-
-        var resp = await _http.PostAsync(usersUrl, new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"), ct);
+        var resp = await _http.PostAsync(usersUrl, JsonContent(payload), ct);
+        var createBody = await resp.Content.ReadAsStringAsync(ct);
 
         string? idStr = null;
 
@@ -59,45 +53,43 @@ public class KeycloakAdminService : IKeycloakAdminService
         }
         else
         {
-            return null;
+            throw new InvalidOperationException($"[KC] Create user failed: {(int)resp.StatusCode} {createBody}");
         }
 
-        if (string.IsNullOrWhiteSpace(idStr) || !Guid.TryParse(idStr, out var keycloakId)) return null;
+        if (string.IsNullOrWhiteSpace(idStr) || !Guid.TryParse(idStr, out var keycloakId))
+            throw new InvalidOperationException("[KC] Could not resolve created user id.");
 
         var pwdPayload = new { type = "password", value = password, temporary = false };
-        await _http.PutAsync($"{usersUrl}/{keycloakId}/reset-password", new StringContent(JsonSerializer.Serialize(pwdPayload), Encoding.UTF8, "application/json"), ct);
+        var pwdResp = await _http.PutAsync($"{usersUrl}/{keycloakId}/reset-password", JsonContent(pwdPayload), ct);
+        if (!pwdResp.IsSuccessStatusCode)
+        {
+            var b = await pwdResp.Content.ReadAsStringAsync(ct);
+            throw new InvalidOperationException($"[KC] Set password failed: {(int)pwdResp.StatusCode} {b}");
+        }
 
         if (!string.IsNullOrWhiteSpace(role))
         {
-            var roleResp = await _http.GetAsync($"{_baseUrl}/admin/realms/{_realm}/roles/{role}", ct);
-            if (roleResp.IsSuccessStatusCode)
+            var roleName = role.Trim();
+            if (!roleName.Equals("guest", StringComparison.OrdinalIgnoreCase))
             {
-                var roleBody = await roleResp.Content.ReadAsStringAsync(ct);
-                using var roleDoc = JsonDocument.Parse(roleBody);
-                var roleName = roleDoc.RootElement.GetProperty("name").GetString();
+                var guestGroupId = await FindGroupIdByName("guest", ct);
+                if (guestGroupId is not null)
+                    await _http.DeleteAsync($"{usersUrl}/{keycloakId}/groups/{guestGroupId}", ct);
+            }
 
-                var assignedResp = await _http.GetAsync($"{usersUrl}/{keycloakId}/role-mappings/realm", ct);
-                var alreadyAssigned = false;
-                if (assignedResp.IsSuccessStatusCode)
+            var groupId = await FindGroupIdByName(roleName, ct);
+            if (groupId is not null)
+            {
+                var join = await _http.PutAsync($"{usersUrl}/{keycloakId}/groups/{groupId}", new StringContent(string.Empty), ct);
+                if (!join.IsSuccessStatusCode)
                 {
-                    var arrText = await assignedResp.Content.ReadAsStringAsync(ct);
-                    using var arrDoc = JsonDocument.Parse(arrText);
-                    foreach (var el in arrDoc.RootElement.EnumerateArray())
-                    {
-                        if (el.TryGetProperty("name", out var n) && n.GetString() == roleName)
-                        {
-                            alreadyAssigned = true;
-                            break;
-                        }
-                    }
+                    var b = await join.Content.ReadAsStringAsync(ct);
+                    throw new InvalidOperationException($"[KC] Join group '{roleName}' failed: {(int)join.StatusCode} {b}");
                 }
-
-                if (!alreadyAssigned)
-                {
-                    var arr = new[] { roleDoc.RootElement };
-                    var roleJson = JsonSerializer.Serialize(arr);
-                    await _http.PostAsync($"{usersUrl}/{keycloakId}/role-mappings/realm", new StringContent(roleJson, Encoding.UTF8, "application/json"), ct);
-                }
+            }
+            else
+            {
+                await AssignRealmRoleIfExists(usersUrl, keycloakId, roleName, ct);
             }
         }
 
@@ -106,13 +98,13 @@ public class KeycloakAdminService : IKeycloakAdminService
 
     public async Task<bool> ResetPasswordAsync(Guid keycloakUserId, string newPassword, CancellationToken ct)
     {
-        var token = await GetClientCredentialsToken(ct);
+        var token = await GetAdminToken(ct);
         if (token is null) return false;
 
         _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         var url = $"{_baseUrl}/admin/realms/{_realm}/users/{keycloakUserId}/reset-password";
-        var payload = JsonSerializer.Serialize(new { type = "password", value = newPassword, temporary = false });
-        var resp = await _http.PutAsync(url, new StringContent(payload, Encoding.UTF8, "application/json"), ct);
+        var payload = new { type = "password", value = newPassword, temporary = false };
+        var resp = await _http.PutAsync(url, JsonContent(payload), ct);
         return resp.IsSuccessStatusCode;
     }
 
@@ -121,8 +113,8 @@ public class KeycloakAdminService : IKeycloakAdminService
         var form = new Dictionary<string, string>
         {
             ["grant_type"] = "password",
-            ["client_id"] = _clientId,
-            ["client_secret"] = _clientSecret,
+            ["client_id"] = _publicClientId,
+            ["client_secret"] = _publicClientSecret,
             ["username"] = usernameOrEmail,
             ["password"] = password
         };
@@ -130,19 +122,28 @@ public class KeycloakAdminService : IKeycloakAdminService
         return resp.IsSuccessStatusCode;
     }
 
-    private async Task<string?> GetClientCredentialsToken(CancellationToken ct)
+    private async Task<string?> GetAdminToken(CancellationToken ct)
     {
         var form = new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
-            ["client_id"] = _clientId,
-            ["client_secret"] = _clientSecret
+            ["client_id"] = _adminClientId,
+            ["client_secret"] = _adminClientSecret
         };
-        var resp = await _http.PostAsync($"{_baseUrl}/realms/{_realm}/protocol/openid-connect/token", new FormUrlEncodedContent(form), ct);
-        if (!resp.IsSuccessStatusCode) return null;
-        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
+
+        var resp = await _http.PostAsync($"{_baseUrl}/realms/{_realm}/protocol/openid-connect/token",
+                                         new FormUrlEncodedContent(form), ct);
+
+        var body = await resp.Content.ReadAsStringAsync(ct);
+        if (!resp.IsSuccessStatusCode)
+            throw new InvalidOperationException($"[KC] Admin token failed: {(int)resp.StatusCode} {body}");
+
+        using var doc = JsonDocument.Parse(body);
         return doc.RootElement.GetProperty("access_token").GetString();
     }
+
+    private static StringContent JsonContent(object o)
+        => new StringContent(JsonSerializer.Serialize(o), Encoding.UTF8, "application/json");
 
     private static (string, string) SplitFullName(string fullName)
     {
@@ -182,5 +183,39 @@ public class KeycloakAdminService : IKeycloakAdminService
         }
 
         return null;
+    }
+
+    private async Task<string?> FindGroupIdByName(string groupName, CancellationToken ct)
+    {
+        var resp = await _http.GetAsync($"{_baseUrl}/admin/realms/{_realm}/groups?search={Uri.EscapeDataString(groupName)}", ct);
+        if (!resp.IsSuccessStatusCode) return null;
+
+        var body = await resp.Content.ReadAsStringAsync(ct);
+        using var doc = JsonDocument.Parse(body);
+
+        foreach (var el in doc.RootElement.EnumerateArray())
+        {
+            if (el.TryGetProperty("name", out var n) && string.Equals(n.GetString(), groupName, StringComparison.OrdinalIgnoreCase))
+                return el.GetProperty("id").GetString();
+        }
+        return null;
+    }
+
+    private async Task AssignRealmRoleIfExists(string usersUrl, Guid keycloakUserId, string roleName, CancellationToken ct)
+    {
+        var roleResp = await _http.GetAsync($"{_baseUrl}/admin/realms/{_realm}/roles/{roleName}", ct);
+        if (!roleResp.IsSuccessStatusCode) return;
+
+        var roleBody = await roleResp.Content.ReadAsStringAsync(ct);
+        using var roleDoc = JsonDocument.Parse(roleBody);
+
+        var roleObj = new
+        {
+            id = roleDoc.RootElement.GetProperty("id").GetString(),
+            name = roleDoc.RootElement.GetProperty("name").GetString()
+        };
+
+        var roleJson = JsonSerializer.Serialize(new[] { roleObj });
+        await _http.PostAsync($"{usersUrl}/{keycloakUserId}/role-mappings/realm", new StringContent(roleJson, Encoding.UTF8, "application/json"), ct);
     }
 }

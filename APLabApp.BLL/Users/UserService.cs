@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using APLabApp.Dal.Repositories;
 using APLabApp.BLL.Auth;
 using APLabApp.Dal.Entities;
+using Microsoft.Extensions.Configuration;
+using System.Text;
 
 namespace APLabApp.BLL.Users
 {
@@ -13,11 +15,14 @@ namespace APLabApp.BLL.Users
     {
         private readonly IUserRepository _repo;
         private readonly IKeycloakAdminService _kc;
+        private readonly bool _useEmailAsUsername;
 
-        public UserService(IUserRepository repo, IKeycloakAdminService kc)
+        public UserService(IUserRepository repo, IKeycloakAdminService kc, IConfiguration cfg)
         {
             _repo = repo;
             _kc = kc;
+            _useEmailAsUsername = (cfg["Keycloak:UseEmailAsUsername"] ?? Environment.GetEnvironmentVariable("Keycloak__UseEmailAsUsername"))?
+                                  .Equals("true", StringComparison.OrdinalIgnoreCase) == true;
         }
 
         public async Task<IReadOnlyList<UserDto>> GetAllAsync(CancellationToken ct)
@@ -34,8 +39,14 @@ namespace APLabApp.BLL.Users
             if (string.IsNullOrWhiteSpace(req.FullName)) throw new ArgumentException("FullName is required.");
             if (string.IsNullOrWhiteSpace(req.Email)) throw new ArgumentException("Email is required.");
 
-            var username = req.Email.Split('@')[0];
-            var keycloakId = await _kc.CreateUserAsync(username, req.Email, req.FullName, "ChangeMe123!", "guest", ct);
+            var email = req.Email.Trim().ToLowerInvariant();
+            var username = BuildUsername(email, req.FullName);
+            var role = string.IsNullOrWhiteSpace(req.RoleName) ? "guest" : req.RoleName!.Trim().ToLowerInvariant();
+
+            if (role != "intern" && req.SeasonId.HasValue)
+                throw new InvalidOperationException($"Users with role '{role}' cannot have SeasonId.");
+
+            var keycloakId = await _kc.CreateUserAsync(username, email, req.FullName, "ChangeMe123!", role, ct);
             if (keycloakId is null) throw new InvalidOperationException("Keycloak user creation failed.");
 
             var e = req.ToEntity();
@@ -51,7 +62,17 @@ namespace APLabApp.BLL.Users
         {
             var e = await _repo.GetByIdAsync(id, ct);
             if (e is null) return null;
+
+            var role = req.RoleName?.Trim().ToLowerInvariant();
+
+            if (req.SeasonId.HasValue && role != "intern")
+                throw new InvalidOperationException("SeasonId can only be set when RoleName is 'intern' in this request.");
+
             req.Apply(e);
+
+            if (role is not null && role != "intern")
+                e.SeasonId = null;
+
             await _repo.UpdateAsync(e, ct);
             await _repo.SaveChangesAsync(ct);
             return UserMappings.FromEntity(e);
@@ -85,8 +106,10 @@ namespace APLabApp.BLL.Users
         {
             if (string.IsNullOrWhiteSpace(req.Email)) throw new ArgumentException("Email is required.");
 
-            var username = req.Email.Split('@')[0];
-            var keycloakId = await _kc.CreateUserAsync(username, req.Email, req.FullName, password, "guest", ct);
+            var email = req.Email.Trim().ToLowerInvariant();
+            var username = BuildUsername(email, req.FullName);
+
+            var keycloakId = await _kc.CreateUserAsync(username, email, req.FullName, password, string.Empty, ct);
             if (keycloakId is null) throw new InvalidOperationException("Keycloak user creation failed.");
 
             var entity = req.ToEntity();
@@ -96,6 +119,23 @@ namespace APLabApp.BLL.Users
             await _repo.SaveChangesAsync(ct);
 
             return UserMappings.FromEntity(entity);
+        }
+
+        private string BuildUsername(string email, string fullName)
+        {
+            if (_useEmailAsUsername) return email;
+
+            var local = email.Split('@')[0];
+            var sb = new StringBuilder(local.Length);
+            foreach (var ch in local.ToLowerInvariant())
+            {
+                if ((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '.' || ch == '_' || ch == '-')
+                    sb.Append(ch);
+            }
+            var candidate = sb.ToString().Trim('-', '_', '.');
+            if (string.IsNullOrWhiteSpace(candidate) || candidate.Length < 3)
+                candidate = "user_" + Guid.NewGuid().ToString("N")[..8];
+            return candidate;
         }
     }
 }
