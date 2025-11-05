@@ -34,6 +34,13 @@ namespace APLabApp.BLL.Users
             return e is null ? null : UserMappings.FromEntity(e);
         }
 
+        public async Task<UserDto?> GetByKeycloakIdAsync(Guid keycloakId, CancellationToken ct)
+        {
+            var all = await _repo.GetAllAsync(ct);
+            var e = all.FirstOrDefault(u => u.KeycloakId == keycloakId);
+            return e is null ? null : UserMappings.FromEntity(e);
+        }
+
         public async Task<UserDto> CreateAsync(CreateUserRequest req, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(req.FullName)) throw new ArgumentException("FullName is required.");

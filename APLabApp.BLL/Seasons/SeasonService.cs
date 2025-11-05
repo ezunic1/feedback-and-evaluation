@@ -1,4 +1,9 @@
-﻿using APLabApp.BLL.Seasons;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using APLabApp.BLL.Auth;
 using APLabApp.BLL.Users;
 using APLabApp.Dal.Entities;
 using APLabApp.Dal.Repositories;
@@ -9,11 +14,13 @@ namespace APLabApp.BLL.Seasons
     {
         private readonly ISeasonRepository _seasons;
         private readonly IUserRepository _users;
+        private readonly IKeycloakAdminService _kc;
 
-        public SeasonService(ISeasonRepository seasons, IUserRepository users)
+        public SeasonService(ISeasonRepository seasons, IUserRepository users, IKeycloakAdminService kc)
         {
             _seasons = seasons;
             _users = users;
+            _kc = kc;
         }
 
         public async Task<IReadOnlyList<SeasonDto>> GetAllAsync(CancellationToken ct)
@@ -32,11 +39,13 @@ namespace APLabApp.BLL.Seasons
         {
             if (req.StartDate >= req.EndDate) throw new ArgumentException("StartDate must be before EndDate.");
 
-            User? mentor = null;
             if (req.MentorId.HasValue)
             {
-                mentor = await _users.GetByIdAsync(req.MentorId.Value, ct);
+                var mentor = await _users.GetByIdAsync(req.MentorId.Value, ct);
                 if (mentor is null) throw new InvalidOperationException("Mentor not found.");
+                if (mentor.KeycloakId == Guid.Empty) throw new InvalidOperationException("Mentor has no Keycloak link.");
+                var isMentor = await _kc.IsUserInGroupAsync(mentor.KeycloakId, "mentor", ct);
+                if (!isMentor) throw new InvalidOperationException("Selected user is not a mentor.");
             }
 
             var entity = new Season
@@ -73,8 +82,15 @@ namespace APLabApp.BLL.Seasons
                 {
                     var mentor = await _users.GetByIdAsync(req.MentorId.Value, ct);
                     if (mentor is null) throw new InvalidOperationException("Mentor not found.");
+                    if (mentor.KeycloakId == Guid.Empty) throw new InvalidOperationException("Mentor has no Keycloak link.");
+                    var isMentor = await _kc.IsUserInGroupAsync(mentor.KeycloakId, "mentor", ct);
+                    if (!isMentor) throw new InvalidOperationException("Selected user is not a mentor.");
+                    s.MentorId = req.MentorId;
                 }
-                s.MentorId = req.MentorId;
+                else
+                {
+                    s.MentorId = null;
+                }
             }
 
             await _seasons.UpdateAsync(s, ct);
@@ -99,15 +115,18 @@ namespace APLabApp.BLL.Seasons
             return true;
         }
 
-        public async Task<bool> AssignMentorAsync(int id, Guid? mentorId, CancellationToken ct)
+        public async Task<AssignMentorResult> AssignMentorAsync(int id, Guid? mentorId, CancellationToken ct)
         {
             var s = await _seasons.GetByIdAsync(id, ct, false);
-            if (s is null) return false;
+            if (s is null) return AssignMentorResult.NotFound;
 
             if (mentorId.HasValue)
             {
                 var mentor = await _users.GetByIdAsync(mentorId.Value, ct);
-                if (mentor is null) throw new InvalidOperationException("Mentor not found.");
+                if (mentor is null) return AssignMentorResult.NotFound;
+                if (mentor.KeycloakId == Guid.Empty) return AssignMentorResult.InvalidRole;
+                var isMentor = await _kc.IsUserInGroupAsync(mentor.KeycloakId, "mentor", ct);
+                if (!isMentor) return AssignMentorResult.InvalidRole;
                 s.MentorId = mentorId;
             }
             else
@@ -117,21 +136,50 @@ namespace APLabApp.BLL.Seasons
 
             await _seasons.UpdateAsync(s, ct);
             await _seasons.SaveChangesAsync(ct);
-            return true;
+            return AssignMentorResult.Ok;
         }
 
-        public async Task<bool> AddUserAsync(int id, Guid userId, CancellationToken ct)
+        public async Task<AddUserResult> AddUserAsync(int id, Guid userId, CancellationToken ct)
         {
             var s = await _seasons.GetByIdAsync(id, ct, false);
-            if (s is null) return false;
+            if (s is null) return AddUserResult.NotFound;
 
             var u = await _users.GetByIdAsync(userId, ct);
-            if (u is null) throw new InvalidOperationException("User not found.");
+            if (u is null) return AddUserResult.NotFound;
+            if (u.KeycloakId == Guid.Empty) return AddUserResult.InvalidRole;
+
+            var isIntern = await _kc.IsUserInGroupAsync(u.KeycloakId, "intern", ct);
+            if (!isIntern) return AddUserResult.InvalidRole;
+
+            if (u.SeasonId.HasValue && u.SeasonId.Value != id) return AddUserResult.AlreadyInAnotherSeason;
 
             u.SeasonId = id;
             await _users.UpdateAsync(u, ct);
             await _users.SaveChangesAsync(ct);
-            return true;
+            return AddUserResult.Ok;
+        }
+
+        public async Task<AddUserResult> AddUserByMentorAsync(int id, Guid userId, Guid mentorKeycloakId, CancellationToken ct)
+        {
+            var s = await _seasons.GetByIdAsync(id, ct, false);
+            if (s is null) return AddUserResult.NotFound;
+
+            var mentor = (await _users.GetAllAsync(ct)).FirstOrDefault(x => x.KeycloakId == mentorKeycloakId);
+            if (mentor is null || s.MentorId != mentor.Id) return AddUserResult.NotFound;
+
+            var u = await _users.GetByIdAsync(userId, ct);
+            if (u is null) return AddUserResult.NotFound;
+            if (u.KeycloakId == Guid.Empty) return AddUserResult.InvalidRole;
+
+            var isIntern = await _kc.IsUserInGroupAsync(u.KeycloakId, "intern", ct);
+            if (!isIntern) return AddUserResult.InvalidRole;
+
+            if (u.SeasonId.HasValue && u.SeasonId.Value != id) return AddUserResult.AlreadyInAnotherSeason;
+
+            u.SeasonId = id;
+            await _users.UpdateAsync(u, ct);
+            await _users.SaveChangesAsync(ct);
+            return AddUserResult.Ok;
         }
 
         public async Task<bool> RemoveUserAsync(int id, Guid userId, CancellationToken ct)
@@ -140,7 +188,7 @@ namespace APLabApp.BLL.Seasons
             if (s is null) return false;
 
             var u = await _users.GetByIdAsync(userId, ct);
-            if (u is null) throw new InvalidOperationException("User not found.");
+            if (u is null) return false;
             if (u.SeasonId != id) return false;
 
             u.SeasonId = null;
@@ -149,11 +197,50 @@ namespace APLabApp.BLL.Seasons
             return true;
         }
 
+        public async Task<bool> RemoveUserByMentorAsync(int id, Guid userId, Guid mentorKeycloakId, CancellationToken ct)
+        {
+            var s = await _seasons.GetByIdAsync(id, ct, false);
+            if (s is null) return false;
+
+            var mentor = (await _users.GetAllAsync(ct)).FirstOrDefault(x => x.KeycloakId == mentorKeycloakId);
+            if (mentor is null || s.MentorId != mentor.Id) return false;
+
+            var u = await _users.GetByIdAsync(userId, ct);
+            if (u is null) return false;
+            if (u.SeasonId != id) return false;
+
+            u.SeasonId = null;
+            await _users.UpdateAsync(u, ct);
+            await _users.SaveChangesAsync(ct);
+
+            if (u.KeycloakId != Guid.Empty)
+                await _kc.ReplaceGroupsWithAsync(u.KeycloakId, "guest", ct);
+
+            return true;
+        }
+
         public async Task<IReadOnlyList<UserDto>> GetUsersAsync(int id, CancellationToken ct)
         {
             var s = await _seasons.GetByIdAsync(id, ct, true);
             if (s is null) return Array.Empty<UserDto>();
             return s.Users.Select(UserMappings.FromEntity).ToList();
+        }
+
+        public async Task<SeasonDto?> GetMySeasonAsync(Guid actorKeycloakId, CancellationToken ct)
+        {
+            var me = (await _users.GetAllAsync(ct)).FirstOrDefault(x => x.KeycloakId == actorKeycloakId);
+            if (me is null || !me.SeasonId.HasValue) return null;
+            var s = await _seasons.GetByIdAsync(me.SeasonId.Value, ct, false);
+            return s is null ? null : SeasonMappings.FromEntity(s);
+        }
+
+        public async Task<IReadOnlyList<UserDto>> GetMySeasonUsersAsync(Guid actorKeycloakId, CancellationToken ct)
+        {
+            var me = (await _users.GetAllAsync(ct)).FirstOrDefault(x => x.KeycloakId == actorKeycloakId);
+            if (me is null || !me.SeasonId.HasValue) return Array.Empty<UserDto>();
+            var s = await _seasons.GetByIdAsync(me.SeasonId.Value, ct, true);
+            if (s is null) return Array.Empty<UserDto>();
+            return s.Users.Where(u => u.Id != me.Id).Select(UserMappings.FromEntity).ToList();
         }
     }
 }

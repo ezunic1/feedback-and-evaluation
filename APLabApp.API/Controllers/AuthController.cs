@@ -1,35 +1,31 @@
 ﻿using APLabApp.BLL.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Threading;
+using System.Threading.Tasks;
 
-namespace APLabApp.Api.Controllers;
-
-[ApiController]
-[AllowAnonymous]
-[Route("api/[controller]")]
-public class AuthController : ControllerBase
+namespace APLabApp.Api.Controllers
 {
-    private readonly IUserService _userService;
-
-    public AuthController(IUserService userService)
+    [ApiController]
+    [AllowAnonymous]
+    [Route("api/[controller]")]
+    public class AuthController : ControllerBase
     {
-        _userService = userService;
+        private readonly IUserService _userService;
+
+        public AuthController(IUserService userService)
+        {
+            _userService = userService;
+        }
+
+        [HttpPost("register")]
+        public async Task<ActionResult<UserDto>> Register([FromBody] RegisterRequest req, CancellationToken ct)
+        {
+            var createReq = new CreateUserRequest(req.FullName, req.Email, "Guest self-registration", null, null);
+            var user = await _userService.CreateGuestAsync(createReq, req.Password, ct);
+            return CreatedAtAction(nameof(Register), new { id = user.Id }, user);
+        }
     }
 
-    [HttpPost("register")]
-    public async Task<ActionResult<UserDto>> Register([FromBody] RegisterRequest req, CancellationToken ct)
-    {
-        var createReq = new CreateUserRequest(
-            req.FullName,
-            req.Email,
-            "Guest self-registration",
-            null,
-            null
-        );
-
-        var user = await _userService.CreateGuestAsync(createReq, req.Password, ct);
-        return CreatedAtAction(nameof(Register), new { id = user.Id }, user);
-    }
+    public record RegisterRequest(string FullName, string Email, string Password);
 }
-
-public record RegisterRequest(string FullName, string Email, string Password);
