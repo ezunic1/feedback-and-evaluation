@@ -1,0 +1,101 @@
+<div class="wrap">
+  <div class="toolbar">
+    <h2 class="title">Dashboard</h2>
+
+    <div class="right">
+      <div class="palette" title="Brand colors">
+        <span class="swatch brand1"></span>
+        <span class="swatch brand2"></span>
+      </div>
+      <a routerLink="/profile" class="btn ghost">← Back to Profile</a>
+    </div>
+  </div>
+
+  <!-- GUEST -->
+  <section class="card" *ngIf="role === 'guest'">
+    <p class="muted">You are logged in as GUEST. There is no dashboard for this role.</p>
+    <div class="actions">
+      <a class="btn" routerLink="/profile">My Profile</a>
+      <button class="btn accent" (click)="logout()">Logout</button>
+    </div>
+  </section>
+
+  <!-- INTERN -->
+  <section class="card" *ngIf="role === 'intern'">
+    <div class="accent-bar"></div>
+    <h3 class="card-title">My Lab</h3>
+
+    <ng-container *ngIf="!loading; else loadingTpl">
+      <div *ngIf="mySeason; else noSeason">
+        <div class="row">
+          <div>
+            <div class="label">Season</div>
+            <div class="value">{{ mySeason.name }}</div>
+          </div>
+          <div>
+            <div class="label">Mentor</div>
+            <div class="value">{{ mySeason.mentorName || '—' }}</div>
+          </div>
+          <div>
+            <div class="label">Dates</div>
+            <div class="value">
+              {{ mySeason.startDate | date:'mediumDate' }} – {{ mySeason.endDate | date:'mediumDate' }}
+            </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+        <h4 class="sub">Interns in this lab</h4>
+        <ul class="list" *ngIf="peers.length; else emptyPeers">
+          <li *ngFor="let u of peers">
+            <span class="avatar">{{ (u.fullName || u.email || 'U') | slice:0:1 | uppercase }}</span>
+            <div class="user">
+              <div class="name">{{ u.fullName || '—' }}</div>
+              <div class="email">{{ u.email }}</div>
+            </div>
+          </li>
+        </ul>
+        <ng-template #emptyPeers><p class="muted">No other interns found.</p></ng-template>
+      </div>
+
+      <ng-template #noSeason>
+        <p class="muted">You are not assigned to any season currently.</p>
+      </ng-template>
+    </ng-container>
+  </section>
+
+  <!-- MENTOR / ADMIN -->
+  <section class="card" *ngIf="role === 'mentor' || role === 'admin'">
+    <h3 class="card-title">Seasons</h3>
+
+    <ng-container *ngIf="!loading; else loadingTpl">
+      <div class="grid" *ngIf="seasons.length; else noSeasons">
+        <a class="season" *ngFor="let s of seasons" [routerLink]="['/seasons', s.id]">
+          <div class="accent"></div>
+          <div class="s-name">{{ s.name }}</div>
+
+          <div class="s-row">
+            <span class="s-label">Mentor</span>
+            <span class="s-val">{{ s.mentorName || '—' }}</span>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Dates</span>
+            <span class="s-val">
+              {{ s.startDate | date:'mediumDate' }} – {{ s.endDate | date:'mediumDate' }}
+            </span>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Interns</span>
+            <span class="s-val">{{ s.usersCount }}</span>
+          </div>
+        </a>
+      </div>
+
+      <ng-template #noSeasons><p class="muted">No seasons.</p></ng-template>
+    </ng-container>
+  </section>
+
+  <ng-template #loadingTpl>
+    <div class="skeleton"></div>
+  </ng-template>
+</div>

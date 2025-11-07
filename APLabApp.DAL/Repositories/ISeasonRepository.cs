@@ -10,5 +10,8 @@ namespace APLabApp.Dal.Repositories
         Task UpdateAsync(Season season, CancellationToken ct);
         Task DeleteAsync(Season season, CancellationToken ct);
         Task SaveChangesAsync(CancellationToken ct);
+
+        Task<Season?> GetCurrentForInternAsync(Guid userId, DateTime utcNow, CancellationToken ct);
+        Task<Season?> GetCurrentForMentorAsync(Guid mentorId, DateTime utcNow, CancellationToken ct);
     }
 }

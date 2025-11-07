@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using APLabApp.BLL.Users;
+using APLabApp.Dal.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,7 +16,13 @@ namespace APLabApp.Api.Controllers
     public class UsersController : ControllerBase
     {
         private readonly IUserService _service;
-        public UsersController(IUserService service) => _service = service;
+        private readonly ISeasonRepository _seasons;
+
+        public UsersController(IUserService service, ISeasonRepository seasons)
+        {
+            _service = service;
+            _seasons = seasons;
+        }
 
         [Authorize(Roles = "admin,mentor")]
         [HttpGet]
@@ -50,6 +59,50 @@ namespace APLabApp.Api.Controllers
         {
             var ok = await _service.DeleteAsync(id, ct);
             return ok ? NoContent() : NotFound();
+        }
+
+        [Authorize]
+        [HttpGet("me")]
+        public async Task<ActionResult<MeDto>> Me(CancellationToken ct)
+        {
+            var sub = User.FindFirstValue("sub") ?? User.FindFirstValue("sid");
+            if (!Guid.TryParse(sub, out var keycloakId))
+                return Unauthorized();
+
+            var u = await _service.GetByKeycloakIdAsync(keycloakId, ct);
+            if (u is null)
+                return Unauthorized();
+
+            var role = ResolveRole(User);
+            var dto = new MeDto { Name = u.FullName, Email = u.Email, Role = role };
+
+            var now = DateTime.UtcNow;
+            if (role == "intern")
+            {
+                var s = await _seasons.GetCurrentForInternAsync(u.Id, now, ct);
+                dto.InternSeasonName = s?.Name;
+            }
+            else if (role == "mentor")
+            {
+                var s = await _seasons.GetCurrentForMentorAsync(u.Id, now, ct);
+                dto.MentorSeasonName = s?.Name;
+            }
+
+            return Ok(dto);
+        }
+
+        private static string ResolveRole(ClaimsPrincipal principal)
+        {
+            var allRoles = principal.Claims
+                .Where(c => c.Type == "roles" || c.Type == ClaimTypes.Role)
+                .Select(c => c.Value.ToLowerInvariant())
+                .ToList();
+
+            if (allRoles.Contains("admin")) return "admin";
+            if (allRoles.Contains("mentor")) return "mentor";
+            if (allRoles.Contains("intern")) return "intern";
+            if (allRoles.Contains("guest")) return "guest";
+            return "guest";
         }
     }
 }

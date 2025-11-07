@@ -99,35 +99,91 @@ namespace APLabApp.Api.Controllers
         {
             var sub = User.FindFirstValue("sub");
             Guid.TryParse(sub, out var kcId);
-            var roles = User.Claims.Where(c => c.Type == ClaimTypes.Role || c.Type == "roles").Select(c => c.Value).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var roles = User.Claims
+                .Where(c => c.Type == ClaimTypes.Role || c.Type == "roles")
+                .Select(c => c.Value)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
             var isAdmin = roles.Contains("admin");
             var isMentor = roles.Contains("mentor");
             var isIntern = roles.Contains("intern");
 
-            if (!isAdmin)
+            if (isAdmin || isMentor)
             {
+                var listAll = await _service.GetUsersAsync(id, ct);
+                return Ok(listAll);
+            }
+
+            if (isIntern)
+            {
+                if (kcId == Guid.Empty) return Forbid();
                 var season = await _service.GetByIdAsync(id, includeUsers: false, ct);
                 if (season is null) return NotFound();
 
-                if (isMentor)
-                {
-                    var me = kcId == Guid.Empty ? null : await _users.GetByKeycloakIdAsync(kcId, ct);
-                    if (me is null || season.MentorId != me.Id) return Forbid();
-                }
-                else if (isIntern)
-                {
-                    if (kcId == Guid.Empty) return Forbid();
-                    var users = await _service.GetUsersAsync(id, ct);
-                    if (!users.Any(u => u.KeycloakId == kcId)) return Forbid();
-                }
-                else
-                {
-                    return Forbid();
-                }
+                var users = await _service.GetUsersAsync(id, ct);
+                if (!users.Any(u => u.KeycloakId == kcId)) return Forbid();
+
+                return Ok(users);
             }
 
-            var list = await _service.GetUsersAsync(id, ct);
+            return Forbid();
+        }
+
+        [Authorize(Roles = "intern")]
+        [HttpGet("me")]
+        public async Task<ActionResult<SeasonDto>> GetMySeason(CancellationToken ct)
+        {
+            var sub = User.FindFirstValue("sub");
+            if (!Guid.TryParse(sub, out var kcId) || kcId == Guid.Empty)
+                return Forbid();
+
+            var dto = await _service.GetMySeasonAsync(kcId, ct);
+            if (dto is null) return NoContent();
+            return Ok(dto);
+        }
+
+        [Authorize(Roles = "intern")]
+        [HttpGet("me/users")]
+        public async Task<ActionResult<IReadOnlyList<UserDto>>> GetMySeasonUsers(CancellationToken ct)
+        {
+            var sub = User.FindFirstValue("sub");
+            if (!Guid.TryParse(sub, out var kcId) || kcId == Guid.Empty)
+                return Forbid();
+
+            var list = await _service.GetMySeasonUsersAsync(kcId, ct);
             return Ok(list);
+        }
+
+        [Authorize(Roles = "mentor")]
+        [HttpPost("{id:int}/users/{userId:guid}/by-mentor")]
+        public async Task<IActionResult> MentorAddUser(int id, Guid userId, CancellationToken ct)
+        {
+            var sub = User.FindFirstValue("sub");
+            if (!Guid.TryParse(sub, out var mentorKcId) || mentorKcId == Guid.Empty)
+                return Forbid();
+
+            var res = await _service.AddUserByMentorAsync(id, userId, mentorKcId, ct);
+            return res switch
+            {
+                AddUserResult.Ok => NoContent(),
+                AddUserResult.NotFound => NotFound(),
+                AddUserResult.InvalidRole => BadRequest("User is not in 'intern' group."),
+                AddUserResult.AlreadyInAnotherSeason => BadRequest("User is already assigned to another season."),
+                _ => BadRequest()
+            };
+        }
+
+        [Authorize(Roles = "mentor")]
+        [HttpDelete("{id:int}/users/{userId:guid}/by-mentor")]
+        public async Task<IActionResult> MentorRemoveUser(int id, Guid userId, CancellationToken ct)
+        {
+            var sub = User.FindFirstValue("sub");
+            if (!Guid.TryParse(sub, out var mentorKcId) || mentorKcId == Guid.Empty)
+                return Forbid();
+
+            var ok = await _service.RemoveUserByMentorAsync(id, userId, mentorKcId, ct);
+            return ok ? NoContent() : NotFound();
         }
     }
 

@@ -20,6 +20,7 @@ namespace APLabApp.BLL.Auth
         private readonly string _publicClientId;
         private readonly string _publicClientSecret;
 
+
         public KeycloakAdminService(HttpClient http, IConfiguration cfg)
         {
             _http = http;
@@ -123,6 +124,29 @@ namespace APLabApp.BLL.Auth
             };
             var resp = await _http.PostAsync($"{_baseUrl}/realms/{_realm}/protocol/openid-connect/token", new FormUrlEncodedContent(form), ct);
             return resp.IsSuccessStatusCode;
+        }
+
+        public async Task<TokenResponse> PasswordTokenAsync(string usernameOrEmail, string password, CancellationToken ct)
+        {
+            var form = new Dictionary<string, string>
+            {
+                ["grant_type"] = "password",
+                ["client_id"] = _publicClientId,
+                ["username"] = usernameOrEmail,
+                ["password"] = password
+            };
+
+            if (!string.IsNullOrWhiteSpace(_publicClientSecret))
+                form["client_secret"] = _publicClientSecret;
+
+            var resp = await _http.PostAsync($"{_baseUrl}/realms/{_realm}/protocol/openid-connect/token", new FormUrlEncodedContent(form), ct);
+            var body = await resp.Content.ReadAsStringAsync(ct);
+
+            if (!resp.IsSuccessStatusCode)
+                throw new InvalidOperationException($"[KC] Login failed: {(int)resp.StatusCode} {body}");
+
+            var token = JsonSerializer.Deserialize<TokenResponse>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+            return token;
         }
 
         public async Task<bool> IsUserInGroupAsync(Guid keycloakUserId, string groupName, CancellationToken ct)

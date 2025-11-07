@@ -1,4 +1,9 @@
-﻿using APLabApp.Dal.Entities;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using APLabApp.Dal.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace APLabApp.Dal.Repositories
@@ -10,7 +15,11 @@ namespace APLabApp.Dal.Repositories
         public SeasonRepository(AppDbContext db) => _db = db;
 
         public Task<List<Season>> GetAllAsync(CancellationToken ct) =>
-            _db.Seasons.AsNoTracking().Include(s => s.Mentor).ToListAsync(ct);
+            _db.Seasons
+               .AsNoTracking()
+               .Include(s => s.Mentor)
+               .Include(s => s.Users)
+               .ToListAsync(ct);
 
         public async Task<Season?> GetByIdAsync(int id, CancellationToken ct, bool includeUsers = false)
         {
@@ -37,5 +46,26 @@ namespace APLabApp.Dal.Repositories
         }
 
         public Task SaveChangesAsync(CancellationToken ct) => _db.SaveChangesAsync(ct);
+
+        public async Task<Season?> GetCurrentForInternAsync(Guid userId, DateTime utcNow, CancellationToken ct)
+        {
+            return await _db.Seasons
+                .Include(s => s.Users)
+                .Where(s => s.Users.Any(u => u.Id == userId)
+                            && s.StartDate <= utcNow
+                            && s.EndDate >= utcNow)
+                .OrderByDescending(s => s.StartDate)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        public async Task<Season?> GetCurrentForMentorAsync(Guid mentorId, DateTime utcNow, CancellationToken ct)
+        {
+            return await _db.Seasons
+                .Where(s => s.MentorId == mentorId
+                            && s.StartDate <= utcNow
+                            && s.EndDate >= utcNow)
+                .OrderByDescending(s => s.StartDate)
+                .FirstOrDefaultAsync(ct);
+        }
     }
 }

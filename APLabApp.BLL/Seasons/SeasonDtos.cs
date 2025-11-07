@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace APLabApp.BLL.Seasons
+﻿namespace APLabApp.BLL.Seasons
 {
     public sealed record SeasonDto(
         int Id,

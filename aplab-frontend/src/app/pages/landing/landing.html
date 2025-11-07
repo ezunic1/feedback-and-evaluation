@@ -1,0 +1,74 @@
+<div class="landing-container">
+ <header>
+  <img src="assets/images/ap-logo.jpg" alt="Authority Partners Logo" class="ap-logo" />
+
+  <div class="header-actions" *ngIf="auth.isLoggedIn(); else loggedOut">
+    <button class="login-btn" routerLink="/profile">My Profile</button>
+    <button class="logout-btn" (click)="logout()">Logout</button>
+  </div>
+
+  <ng-template #loggedOut>
+    <div class="header-actions">
+      <button class="login-btn" routerLink="/login">Login / Register</button>
+    </div>
+  </ng-template>
+</header>
+
+
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-text">
+        <h1>Build the skills you need to take your career to the next level.</h1>
+        <p>
+          Are you looking to gain exposure to the IT sector and land the right position
+          to start your career? If so, look no further. The <strong>AP Lab Cloud Masters</strong>
+          training program offers you structured and well-designed lectures using the
+          latest technology while working on a live project!
+        </p>
+        <button routerLink="/register" class="cta-btn">Join the Program</button>
+      </div>
+
+      <div class="hero-image">
+        <img src="assets/images/ap-lab-training.jpg" alt="AP Lab training" />
+      </div>
+    </div>
+  </section>
+
+  <section class="about">
+    <div class="about-inner">
+      <h2>Our program prepares you for real life</h2>
+      <p>
+        Led by dedicated Authority Partners consultants, <strong>AP Lab</strong> is a
+        12-week program focusing on full-stack development and quality assurance,
+        covering the entire software development lifecycle.
+      </p>
+
+      <p>
+        Once you’ve completed the program, you can confidently start your career as a
+        junior full-stack developer, mastering technologies such as:
+      </p>
+
+      <ul class="tech-list">
+        <li>C#</li>
+        <li>.NET Core</li>
+        <li>Angular</li>
+        <li>HTML / CSS / JavaScript / Bootstrap</li>
+        <li>Azure DevOps</li>
+        <li>Entity Framework Core</li>
+        <li>SQL Server</li>
+        <li>Git / TFS</li>
+        <li>XUnit</li>
+      </ul>
+
+      <p>
+        Interested in a Quality Assurance career path? With AP Lab, you’ll be ready to
+        start your career as a Junior QA Engineer, possessing a strong grasp of the
+        complete QA lifecycle.
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    <p>© 2025 Authority Partners Lab — Empowering Future Talent</p>
+  </footer>
+</div>

@@ -1,0 +1,46 @@
+<div class="register-container">
+  <div class="register-card">
+    <a routerLink="/" class="back-link">← Back to home page</a>
+
+    <h2>Create Your Account</h2>
+    <p class="subtitle">Join the Authority Partners Lab community</p>
+
+   <form (ngSubmit)="onSubmit()" #registerForm="ngForm" novalidate>
+  <div class="form-group">
+    <label>Full Name</label>
+    <input type="text" [(ngModel)]="model.fullName" name="fullName" required />
+  </div>
+
+  <div class="form-group">
+    <label>Email</label>
+    <input type="email" [(ngModel)]="model.email" name="email" required />
+  </div>
+
+  <div class="form-group">
+    <label>Password</label>
+    <input type="password" [(ngModel)]="model.password" name="password" required />
+  </div>
+
+  <div class="form-group">
+    <label>Confirm Password</label>
+    <input type="password" [(ngModel)]="confirmPassword" name="confirmPassword" required />
+  </div>
+
+  <button
+    type="submit"
+    class="register-btn"
+    [disabled]="loading || !registerForm.form.valid"
+    (click)="onSubmit()"
+  >
+    {{ loading ? 'Registering...' : 'Register' }}
+  </button>
+</form>
+
+<p *ngIf="message" class="message">{{ message }}</p>
+
+
+    <p class="login-link">
+      Already have an account? <a routerLink="/login">Login here</a>
+    </p>
+  </div>
+</div>

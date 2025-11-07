@@ -1,4 +1,5 @@
-﻿using APLabApp.BLL.Users;
+﻿using APLabApp.BLL.Auth;
+using APLabApp.BLL.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading;
@@ -12,10 +13,12 @@ namespace APLabApp.Api.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IUserService _userService;
+        private readonly IKeycloakAdminService _kc;
 
-        public AuthController(IUserService userService)
+        public AuthController(IUserService userService, IKeycloakAdminService kc)
         {
             _userService = userService;
+            _kc = kc;
         }
 
         [HttpPost("register")]
@@ -25,7 +28,18 @@ namespace APLabApp.Api.Controllers
             var user = await _userService.CreateGuestAsync(createReq, req.Password, ct);
             return CreatedAtAction(nameof(Register), new { id = user.Id }, user);
         }
+
+        [HttpPost("login")]
+        public async Task<ActionResult<TokenResponse>> Login([FromBody] LoginRequest req, CancellationToken ct)
+        {
+            if (string.IsNullOrWhiteSpace(req.UsernameOrEmail) || string.IsNullOrWhiteSpace(req.Password))
+                return BadRequest("Username/email and password are required.");
+
+            var token = await _kc.PasswordTokenAsync(req.UsernameOrEmail, req.Password, ct);
+            return Ok(token);
+        }
     }
 
     public record RegisterRequest(string FullName, string Email, string Password);
+    public record LoginRequest(string UsernameOrEmail, string Password);
 }
