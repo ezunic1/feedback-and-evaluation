@@ -1,18 +1,5 @@
 <div class="landing-container">
- <header>
-  <img src="assets/images/ap-logo.jpg" alt="Authority Partners Logo" class="ap-logo" />
-
-  <div class="header-actions" *ngIf="auth.isLoggedIn(); else loggedOut">
-    <button class="login-btn" routerLink="/profile">My Profile</button>
-    <button class="logout-btn" (click)="logout()">Logout</button>
-  </div>
-
-  <ng-template #loggedOut>
-    <div class="header-actions">
-      <button class="login-btn" routerLink="/login">Login / Register</button>
-    </div>
-  </ng-template>
-</header>
+<app-navbar></app-navbar>
 
 
   <section class="hero">

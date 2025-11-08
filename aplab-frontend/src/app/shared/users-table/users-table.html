@@ -1,0 +1,56 @@
+<div class="users-card">
+  <div class="filters" *ngIf="showFilters">
+    <input class="input" type="text" placeholder="Search by name or email" [(ngModel)]="q" (ngModelChange)="onFiltersChanged()">
+    <select class="input" [(ngModel)]="role" (ngModelChange)="onFiltersChanged()">
+      <option value="all">All roles</option>
+      <option value="admin">Admin</option>
+      <option value="mentor">Mentor</option>
+      <option value="intern">Intern</option>
+      <option value="guest">Guest</option>
+    </select>
+    <label class="lbl">
+      <span>From</span>
+      <input class="input" type="date" [(ngModel)]="from" (ngModelChange)="onFiltersChanged()">
+    </label>
+    <label class="lbl">
+      <span>To</span>
+      <input class="input" type="date" [(ngModel)]="to" (ngModelChange)="onFiltersChanged()">
+    </label>
+  </div>
+
+  <div *ngIf="loading" class="skeleton"></div>
+
+  <div class="table-wrap" *ngIf="!loading && rows?.length; else empty">
+    <table>
+      <thead>
+        <tr>
+          <th (click)="changeSort('name')" [class.sorted]="sortBy==='name'">
+            Name <span class="sort" *ngIf="sortBy==='name'">{{ sortDir==='asc' ? '↑' : '↓' }}</span>
+          </th>
+          <th (click)="changeSort('email')" [class.sorted]="sortBy==='email'">
+            Email <span class="sort" *ngIf="sortBy==='email'">{{ sortDir==='asc' ? '↑' : '↓' }}</span>
+          </th>
+          <th>Role</th>
+          <th (click)="changeSort('createdAt')" [class.sorted]="sortBy==='createdAt'">
+            Registered <span class="sort" *ngIf="sortBy==='createdAt'">{{ sortDir==='asc' ? '↑' : '↓' }}</span>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let u of rows" (click)="openRow(u.id)">
+          <td>{{ u.fullName || '—' }}</td>
+          <td class="muted">{{ u.email }}</td>
+          <td><span class="role" [attr.data-role]="u.role">{{ u.role | uppercase }}</span></td>
+          <td class="muted">{{ u.createdAtUtc | date:'mediumDate' }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pager" *ngIf="showPagination && !loading && totalPages > 1">
+    <button class="page-btn" *ngFor="let p of pages" [class.active]="p===page" (click)="pageClick(p)">{{ p }}</button>
+    <span class="total"></span>
+  </div>
+
+  <ng-template #empty><p class="muted">No users.</p></ng-template>
+</div>

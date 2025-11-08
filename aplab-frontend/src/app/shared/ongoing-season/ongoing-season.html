@@ -1,0 +1,23 @@
+<div class="card">
+  <div class="accent-bar"></div>
+  <h3 class="card-title">{{ title }}</h3>
+  <ng-container *ngIf="season; else noneTpl">
+    <div class="row">
+      <div>
+        <div class="label">Season</div>
+        <div class="value">{{ season?.name }}</div>
+      </div>
+      <div>
+        <div class="label">Mentor</div>
+        <div class="value">{{ season?.mentorName || '—' }}</div>
+      </div>
+      <div>
+        <div class="label">Dates</div>
+        <div class="value">{{ season?.startDate | date:'mediumDate' }} – {{ season?.endDate | date:'mediumDate' }}</div>
+      </div>
+    </div>
+  </ng-container>
+  <ng-template #noneTpl>
+    <p class="muted">No ongoing season.</p>
+  </ng-template>
+</div>

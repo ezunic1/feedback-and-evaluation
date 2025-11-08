@@ -7,6 +7,8 @@ namespace APLabApp.BLL.Users
 {
     public interface IUserService
     {
+        Task<PagedResult<UserListItemDto>> GetPagedAsync(UsersQuery q, CancellationToken ct);
+
         Task<IReadOnlyList<UserDto>> GetAllAsync(CancellationToken ct);
         Task<UserDto?> GetByIdAsync(Guid id, CancellationToken ct);
         Task<UserDto> CreateAsync(CreateUserRequest req, CancellationToken ct);
@@ -15,5 +17,7 @@ namespace APLabApp.BLL.Users
         Task<bool> ChangePasswordAsync(Guid id, string newPassword, string? currentPassword, CancellationToken ct);
         Task<UserDto> CreateGuestAsync(CreateUserRequest req, string password, CancellationToken ct);
         Task<UserDto?> GetByKeycloakIdAsync(Guid keycloakId, CancellationToken ct);
+        Task<UserDto> EnsureLocalUserAsync(Guid keycloakId, string? email, string? fullName, CancellationToken ct);
+        Task<UserDto?> UpdateSelfAsync(Guid keycloakId, string fullName, string? description, CancellationToken ct);
     }
 }

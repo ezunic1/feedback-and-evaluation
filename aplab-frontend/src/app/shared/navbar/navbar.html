@@ -1,0 +1,18 @@
+<ng-container *ngIf="visible()">
+  <header class="ap-header">
+    <a routerLink="/" class="logo-link" aria-label="Go to home">
+      <img src="assets/images/ap-logo.jpg" alt="Authority Partners Logo" class="ap-logo" />
+    </a>
+
+    <div class="header-actions" *ngIf="auth.isLoggedIn(); else loggedOut">
+      <button class="login-btn" routerLink="/profile">My Profile</button>
+      <button class="logout-btn" (click)="logout()">Logout</button>
+    </div>
+
+    <ng-template #loggedOut>
+      <div class="header-actions">
+        <button class="login-btn" routerLink="/login">Login / Register</button>
+      </div>
+    </ng-template>
+  </header>
+</ng-container>

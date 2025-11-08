@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { RouterLink, ActivatedRoute, Router } from '@angular/router';
 import { Seasons, SeasonDto, UserDto } from '../../services/seasons';
 import { Auth } from '../../services/auth';
+import { Navbar } from '../../shared/navbar/navbar';
 
 @Component({
   selector: 'app-season',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, Navbar],
   templateUrl: './season.html',
   styleUrl: './season.css'
 })

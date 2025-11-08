@@ -1,0 +1,53 @@
+<div class="create-container">
+  <div class="create-card">
+    <a routerLink="/admin" class="back-link">← Back to dashboard</a>
+
+    <h2>Create User</h2>
+    <p class="subtitle">Enter profile details, role and password</p>
+
+    <form (ngSubmit)="onSubmit()" #f="ngForm" novalidate>
+      <div class="form-group">
+        <label>Full Name</label>
+        <input type="text" [(ngModel)]="model.fullName" name="fullName" required />
+      </div>
+
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" [(ngModel)]="model.email" name="email" required />
+      </div>
+
+      <div class="form-group">
+        <label>Description</label>
+        <textarea [(ngModel)]="model.desc" name="desc" rows="3"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Role</label>
+        <select [(ngModel)]="model.role" name="role" required>
+          <option *ngFor="let r of roles" [value]="r">{{ roleLabel[r] }}</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" [(ngModel)]="model.password" name="password" autocomplete="new-password" required />
+      </div>
+
+      <div class="form-group">
+        <label>Confirm Password</label>
+        <input type="password" [(ngModel)]="model.confirmPassword" name="confirmPassword" autocomplete="new-password" required />
+      </div>
+
+      <label class="check-row">
+        <input type="checkbox" [(ngModel)]="model.forcePasswordChange" name="forcePasswordChange" />
+        <span>Require password change on first login</span>
+      </label>
+
+      <button type="submit" class="create-btn" [disabled]="loading || !f.form.valid">
+        {{ loading ? 'Creating...' : 'Create User' }}
+      </button>
+    </form>
+
+    <p *ngIf="message" class="message">{{ message }}</p>
+  </div>
+</div>

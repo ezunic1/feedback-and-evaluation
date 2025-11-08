@@ -1,0 +1,20 @@
+<app-navbar></app-navbar>
+<div class="wrap">
+  <div class="toolbar">
+    <h2 class="title">Mentor Dashboard</h2>
+  </div>
+
+  <ng-container *ngIf="!loading; else loadingTpl">
+    <app-ongoing-season [season]="ongoing" title="Ongoing season"></app-ongoing-season>
+    <app-my-seasons-list [seasons]="myPrevious" title="My previous seasons" (open)="openSeason($event)"></app-my-seasons-list>
+
+    <div class="card">
+      <h3 class="card-title">Other seasons</h3>
+      <app-season-list [seasons]="others" (open)="openSeason($event)"></app-season-list>
+    </div>
+  </ng-container>
+
+  <ng-template #loadingTpl>
+    <div class="skeleton"></div>
+  </ng-template>
+</div>

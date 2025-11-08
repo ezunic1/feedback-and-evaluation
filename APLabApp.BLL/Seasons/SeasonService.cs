@@ -167,7 +167,14 @@ namespace APLabApp.BLL.Seasons
             if (u.KeycloakId == Guid.Empty) return AddUserResult.InvalidRole;
 
             var isIntern = await _kc.IsUserInGroupAsync(u.KeycloakId, "intern", ct);
-            if (!isIntern) return AddUserResult.InvalidRole;
+            if (!isIntern)
+            {
+                var isGuest = await _kc.IsUserInGroupAsync(u.KeycloakId, "guest", ct);
+                if (isGuest)
+                    await _kc.ReplaceGroupsWithAsync(u.KeycloakId, "intern", ct);
+                else
+                    return AddUserResult.InvalidRole;
+            }
 
             if (u.SeasonId.HasValue && u.SeasonId.Value != id) return AddUserResult.AlreadyInAnotherSeason;
 

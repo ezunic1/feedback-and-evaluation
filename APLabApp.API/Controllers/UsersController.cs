@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading;
@@ -26,8 +25,8 @@ namespace APLabApp.Api.Controllers
 
         [Authorize(Roles = "admin,mentor")]
         [HttpGet]
-        public async Task<ActionResult<IReadOnlyList<UserDto>>> GetAll(CancellationToken ct)
-            => Ok(await _service.GetAllAsync(ct));
+        public async Task<ActionResult<PagedResult<UserListItemDto>>> Get([FromQuery] UsersQuery q, CancellationToken ct)
+            => Ok(await _service.GetPagedAsync(q, ct));
 
         [Authorize(Roles = "admin,mentor")]
         [HttpGet("{id:guid}")]
@@ -74,7 +73,7 @@ namespace APLabApp.Api.Controllers
                 return Unauthorized();
 
             var role = ResolveRole(User);
-            var dto = new MeDto { Name = u.FullName, Email = u.Email, Role = role };
+            var dto = new MeDto { Name = u.FullName, Email = u.Email, Role = role, Description = u.Desc };
 
             var now = DateTime.UtcNow;
             if (role == "intern")
@@ -88,6 +87,28 @@ namespace APLabApp.Api.Controllers
                 dto.MentorSeasonName = s?.Name;
             }
 
+            return Ok(dto);
+        }
+
+        [Authorize]
+        [HttpPut("me")]
+        public async Task<ActionResult<MeDto>> UpdateMe([FromBody] UpdateMeRequest req, CancellationToken ct)
+        {
+            var sub = User.FindFirstValue("sub") ?? User.FindFirstValue("sid");
+            if (!Guid.TryParse(sub, out var keycloakId))
+                return Unauthorized();
+
+            var updated = await _service.UpdateSelfAsync(keycloakId, req.FullName, req.Description, ct);
+            if (updated is null) return NotFound();
+
+            var role = ResolveRole(User);
+            var dto = new MeDto
+            {
+                Name = updated.FullName,
+                Email = updated.Email,
+                Role = role,
+                Description = updated.Desc
+            };
             return Ok(dto);
         }
 

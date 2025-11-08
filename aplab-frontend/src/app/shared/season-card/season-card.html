@@ -1,0 +1,16 @@
+<div class="card" (click)="open.emit(season.id)">
+  <div class="accent"></div>
+  <div class="s-name">{{ season.name }}</div>
+  <div class="s-row">
+    <span class="s-label">Mentor</span>
+    <span class="s-val">{{ season.mentorName || '—' }}</span>
+  </div>
+  <div class="s-row">
+    <span class="s-label">Dates</span>
+    <span class="s-val">{{ season.startDate | date:'mediumDate' }} – {{ season.endDate | date:'mediumDate' }}</span>
+  </div>
+  <div class="s-row">
+    <span class="s-label">Interns</span>
+    <span class="s-val">{{ season.usersCount ?? '—' }}</span>
+  </div>
+</div>

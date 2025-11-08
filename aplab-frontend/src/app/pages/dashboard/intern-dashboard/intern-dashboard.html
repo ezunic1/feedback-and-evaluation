@@ -1,0 +1,32 @@
+<app-navbar></app-navbar>
+<div class="wrap">
+  <div class="toolbar">
+    <h2 class="title">Intern Dashboard</h2>
+  </div>
+
+  <ng-container *ngIf="!loading; else loadingTpl">
+    <app-ongoing-season [season]="mySeason" title="My season"></app-ongoing-season>
+
+    <div class="card" *ngIf="peers?.length">
+      <h3 class="card-title">Interns in my season</h3>
+      <ul class="list">
+        <li *ngFor="let u of peers">
+          <span class="avatar">{{ (u.fullName || u.email || 'U') | slice:0:1 | uppercase }}</span>
+          <div class="user">
+            <div class="name">{{ u.fullName || '—' }}</div>
+            <div class="email">{{ u.email }}</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3 class="card-title">Other seasons</h3>
+      <app-season-list [seasons]="others" (open)="openSeason($event)"></app-season-list>
+    </div>
+  </ng-container>
+
+  <ng-template #loadingTpl>
+    <div class="skeleton"></div>
+  </ng-template>
+</div>

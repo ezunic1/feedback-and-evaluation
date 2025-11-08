@@ -2,8 +2,10 @@
 using APLabApp.BLL.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
+using System;
 
 namespace APLabApp.Api.Controllers
 {
@@ -24,7 +26,15 @@ namespace APLabApp.Api.Controllers
         [HttpPost("register")]
         public async Task<ActionResult<UserDto>> Register([FromBody] RegisterRequest req, CancellationToken ct)
         {
-            var createReq = new CreateUserRequest(req.FullName, req.Email, "Guest self-registration", null, null);
+            var createReq = new CreateUserRequest(
+                req.FullName,
+                req.Email,
+                "Guest self-registration",
+                null,
+                null,
+                req.Password,
+                false
+            );
             var user = await _userService.CreateGuestAsync(createReq, req.Password, ct);
             return CreatedAtAction(nameof(Register), new { id = user.Id }, user);
         }
@@ -37,6 +47,21 @@ namespace APLabApp.Api.Controllers
 
             var token = await _kc.PasswordTokenAsync(req.UsernameOrEmail, req.Password, ct);
             return Ok(token);
+        }
+
+        [Authorize]
+        [HttpPost("sync")]
+        public async Task<ActionResult<UserDto>> Sync(CancellationToken ct)
+        {
+            var sub = User.FindFirstValue("sub") ?? User.FindFirstValue("sid");
+            if (string.IsNullOrWhiteSpace(sub) || !Guid.TryParse(sub, out var keycloakId))
+                return BadRequest("Invalid subject");
+
+            var email = User.FindFirstValue("email");
+            var name = User.FindFirstValue("name") ?? User.FindFirstValue("preferred_username");
+
+            var dto = await _userService.EnsureLocalUserAsync(keycloakId, email, name, ct);
+            return Ok(dto);
         }
     }
 

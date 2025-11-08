@@ -1,12 +1,12 @@
-<div class="profile-wrap">
-  <a routerLink="/" class="back-link">← Back to home page</a>
+<app-navbar></app-navbar>
 
+<div class="profile-wrap">
   <h2 class="title">My Profile</h2>
 
-  <section class="profile-card" *ngIf="!loading; else skel">
+  <section class="profile-card" [class.is-editing]="isEditing" *ngIf="!loading; else skel">
     <div class="header">
       <div class="avatar">
-        {{ ((displayName || email || 'U') | slice:0:1)?.toUpperCase() }}
+        {{ (displayName ?? email ?? 'U').substring(0,1) | uppercase }}
       </div>
       <div class="id-block">
         <h3>{{ displayName || '—' }}</h3>
@@ -21,46 +21,42 @@
     <div class="divider"></div>
 
     <div class="info-grid">
-      <div class="info-item">
+      <div class="info-item editable">
         <span class="label">Full name</span>
-        <span class="value">{{ displayName || '—' }}</span>
+        <ng-container *ngIf="!isEditing; else fullNameEdit">
+          <span class="value">{{ displayName || '—' }}</span>
+        </ng-container>
+        <ng-template #fullNameEdit>
+          <input class="input" type="text" [(ngModel)]="fullNameInput" name="fullName" required />
+        </ng-template>
       </div>
+
       <div class="info-item">
         <span class="label">Email</span>
         <span class="value">{{ email || '—' }}</span>
       </div>
 
-      <ng-container *ngIf="role === 'intern'">
-        <div class="info-item wide">
-          <span class="label">Current season</span>
-          <span class="value">
-            {{ internSeasonName ? internSeasonName : 'You are not assigned to any season currently.' }}
-          </span>
-        </div>
-      </ng-container>
-
-      <ng-container *ngIf="role === 'mentor'">
-        <div class="info-item wide">
-          <span class="label">Current season</span>
-          <span class="value">
-            {{ mentorSeasonName ? mentorSeasonName : 'You are not currently mentoring a lab.' }}
-          </span>
-        </div>
-      </ng-container>
-
-      <ng-container *ngIf="role === 'guest' || role === 'admin'">
-        <div class="info-item wide">
-          <span class="label">Role</span>
-          <span class="value">{{ role | uppercase }}</span>
-        </div>
-      </ng-container>
+      <div class="info-item wide editable">
+        <span class="label">Description</span>
+        <ng-container *ngIf="!isEditing; else descEdit">
+          <span class="value">{{ description || '—' }}</span>
+        </ng-container>
+        <ng-template #descEdit>
+          <textarea class="textarea" rows="4" [(ngModel)]="descInput" name="description"></textarea>
+        </ng-template>
+      </div>
     </div>
 
     <div class="actions">
- <button class="btn-secondary" routerLink="/dashboard">Go to Dashboard</button>
-  <button class="btn-primary" (click)="logout()">Logout</button>
-</div>
-
+      <a class="btn-ghost"
+     routerLink="/dashboard"
+     *ngIf="role !== 'guest' && !isEditing">Dashboard</a>
+      <button class="btn-primary" (click)="edit()" *ngIf="!isEditing">Edit profile</button>
+      <button class="btn-ghost" (click)="cancel()" *ngIf="isEditing">Cancel</button>
+      <button class="btn-primary" (click)="save()" [disabled]="saving || !fullNameInput?.trim()" *ngIf="isEditing">
+        {{ saving ? 'Saving…' : 'Save changes' }}
+      </button>
+    </div>
   </section>
 
   <ng-template #skel>

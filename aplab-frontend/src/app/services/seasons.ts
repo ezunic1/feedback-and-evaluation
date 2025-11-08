@@ -21,6 +21,20 @@ export interface UserDto {
   seasonId: number | null;
 }
 
+export interface CreateSeasonRequest {
+  name: string;
+  startDate: string;
+  endDate: string;
+  mentorId: string | null;
+}
+
+export interface UpdateSeasonRequest {
+  name?: string;
+  startDate?: string;
+  endDate?: string;
+  mentorId?: string | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class Seasons {
   private http = inject(HttpClient);
@@ -45,6 +59,30 @@ export class Seasons {
 
   getMySeasonUsers(): Observable<UserDto[]> {
     return this.http.get<UserDto[]>(`${this.base}/me/users`);
+  }
+
+  create(req: CreateSeasonRequest): Observable<SeasonDto> {
+    return this.http.post<SeasonDto>(this.base, req);
+  }
+
+  update(id: number, req: UpdateSeasonRequest): Observable<SeasonDto> {
+    return this.http.put<SeasonDto>(`${this.base}/${id}`, req);
+  }
+
+  delete(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${id}`);
+  }
+
+  assignMentor(id: number, mentorId: string | null): Observable<void> {
+    return this.http.post<void>(`${this.base}/${id}/assign-mentor`, { mentorId });
+  }
+
+  addUser(id: number, userId: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/${id}/users/${userId}`, {});
+  }
+
+  removeUser(id: number, userId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${id}/users/${userId}`);
   }
 
   mentorAddUser(seasonId: number, userId: string): Observable<void> {

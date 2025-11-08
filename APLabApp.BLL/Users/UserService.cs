@@ -7,6 +7,7 @@ using APLabApp.Dal.Repositories;
 using APLabApp.BLL.Auth;
 using APLabApp.Dal.Entities;
 using Microsoft.Extensions.Configuration;
+using Microsoft.EntityFrameworkCore;
 using System.Text;
 
 namespace APLabApp.BLL.Users
@@ -23,6 +24,78 @@ namespace APLabApp.BLL.Users
             _kc = kc;
             _useEmailAsUsername = (cfg["Keycloak:UseEmailAsUsername"] ?? Environment.GetEnvironmentVariable("Keycloak__UseEmailAsUsername"))?
                                   .Equals("true", StringComparison.OrdinalIgnoreCase) == true;
+        }
+
+        public async Task<PagedResult<UserListItemDto>> GetPagedAsync(UsersQuery q, CancellationToken ct)
+        {
+            var page = Math.Max(1, q.Page);
+            var size = Math.Clamp(q.PageSize, 1, 100);
+            var query = _repo.Query().AsNoTracking();
+            if (!string.IsNullOrWhiteSpace(q.Q))
+            {
+                var term = q.Q.Trim().ToLower();
+                query = query.Where(u =>
+                    (u.FullName ?? "").ToLower().Contains(term) ||
+                    u.Email.ToLower().Contains(term));
+            }
+            if (q.From.HasValue) query = query.Where(u => u.CreatedAtUtc >= q.From!.Value);
+            if (q.To.HasValue) query = query.Where(u => u.CreatedAtUtc <= q.To!.Value);
+            query = (q.SortBy?.ToLower(), q.SortDir?.ToLower()) switch
+            {
+                ("name", "asc") => query.OrderBy(u => u.FullName).ThenBy(u => u.Id),
+                ("name", _) => query.OrderByDescending(u => u.FullName).ThenByDescending(u => u.Id),
+                ("email", "asc") => query.OrderBy(u => u.Email).ThenBy(u => u.Id),
+                ("email", _) => query.OrderByDescending(u => u.Email).ThenByDescending(u => u.Id),
+                _ when string.Equals(q.SortDir, "asc", StringComparison.OrdinalIgnoreCase)
+                    => query.OrderBy(u => u.CreatedAtUtc).ThenBy(u => u.Id),
+                _ => query.OrderByDescending(u => u.CreatedAtUtc).ThenByDescending(u => u.Id)
+            };
+            if (!string.IsNullOrWhiteSpace(q.Role))
+            {
+                var role = q.Role!.Trim().ToLower();
+                var idsInRole = await _kc.GetUserIdsInRealmRoleAsync(role, ct);
+                var idsInGroup = await _kc.GetUserIdsInGroupAsync(role, ct);
+                var idsUnion = new HashSet<Guid>(idsInRole);
+                idsUnion.UnionWith(idsInGroup);
+                if (idsUnion.Count > 0)
+                    query = query.Where(u => idsUnion.Contains(u.KeycloakId));
+                else
+                    query = query.Where(u => false);
+            }
+            var total = await query.CountAsync(ct);
+            var pageEntities = await query
+                .Skip((page - 1) * size)
+                .Take(size)
+                .ToListAsync(ct);
+            var keycloakIds = pageEntities.Select(x => x.KeycloakId).ToList();
+            var rolesMap = await _kc.GetRealmRolesBulkAsync(keycloakIds, ct);
+            var groupsMap = await _kc.GetGroupsBulkAsync(keycloakIds, ct);
+            static string PickRole(string[] roles, string[] groups)
+            {
+                var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                if (roles != null) foreach (var r in roles) if (!string.IsNullOrWhiteSpace(r)) set.Add(r);
+                if (groups != null) foreach (var g in groups) if (!string.IsNullOrWhiteSpace(g)) set.Add(g);
+                if (set.Contains("admin")) return "admin";
+                if (set.Contains("mentor")) return "mentor";
+                if (set.Contains("intern")) return "intern";
+                if (set.Contains("guest")) return "guest";
+                return "guest";
+            }
+            var items = pageEntities.Select(u =>
+            {
+                rolesMap.TryGetValue(u.KeycloakId, out var rr);
+                groupsMap.TryGetValue(u.KeycloakId, out var gg);
+                var role = PickRole(rr ?? Array.Empty<string>(), gg ?? Array.Empty<string>());
+                return new UserListItemDto(
+                    u.Id,
+                    u.FullName,
+                    u.Email,
+                    role,
+                    u.CreatedAtUtc
+                );
+            }).ToList();
+            var totalPages = (int)Math.Ceiling(total / (double)size);
+            return new PagedResult<UserListItemDto>(items, page, size, total, totalPages);
         }
 
         public async Task<IReadOnlyList<UserDto>> GetAllAsync(CancellationToken ct)
@@ -45,23 +118,18 @@ namespace APLabApp.BLL.Users
         {
             if (string.IsNullOrWhiteSpace(req.FullName)) throw new ArgumentException("FullName is required.");
             if (string.IsNullOrWhiteSpace(req.Email)) throw new ArgumentException("Email is required.");
-
             var email = req.Email.Trim().ToLowerInvariant();
             var username = BuildUsername(email, req.FullName);
             var role = string.IsNullOrWhiteSpace(req.RoleName) ? "guest" : req.RoleName!.Trim().ToLowerInvariant();
-
             if (role != "intern" && req.SeasonId.HasValue)
                 throw new InvalidOperationException($"Users with role '{role}' cannot have SeasonId.");
-
-            var keycloakId = await _kc.CreateUserAsync(username, email, req.FullName, "ChangeMe123!", role, ct);
+            var password = string.IsNullOrWhiteSpace(req.Password) ? "ChangeMe123!" : req.Password!;
+            var keycloakId = await _kc.CreateUserAsync(username, email, req.FullName, password, role, ct, req.ForcePasswordChange);
             if (keycloakId is null) throw new InvalidOperationException("Keycloak user creation failed.");
-
             var e = req.ToEntity();
             e.KeycloakId = keycloakId.Value;
-
             await _repo.AddAsync(e, ct);
             await _repo.SaveChangesAsync(ct);
-
             return UserMappings.FromEntity(e);
         }
 
@@ -69,17 +137,36 @@ namespace APLabApp.BLL.Users
         {
             var e = await _repo.GetByIdAsync(id, ct);
             if (e is null) return null;
-
             var role = req.RoleName?.Trim().ToLowerInvariant();
-
-            if (req.SeasonId.HasValue && role != "intern")
-                throw new InvalidOperationException("SeasonId can only be set when RoleName is 'intern' in this request.");
-
+            var oldName = e.FullName;
             req.Apply(e);
-
+            if (!string.IsNullOrWhiteSpace(role) && e.KeycloakId != Guid.Empty)
+                await _kc.ReplaceGroupsWithAsync(e.KeycloakId, role!, ct);
             if (role is not null && role != "intern")
                 e.SeasonId = null;
+            if (e.KeycloakId != Guid.Empty && !string.Equals(oldName, e.FullName, StringComparison.Ordinal))
+            {
+                var (first, last) = SplitName(e.FullName);
+                await _kc.UpdateUserProfileAsync(e.KeycloakId, first, last, null, ct);
+            }
+            await _repo.UpdateAsync(e, ct);
+            await _repo.SaveChangesAsync(ct);
+            return UserMappings.FromEntity(e);
+        }
 
+        public async Task<UserDto?> UpdateSelfAsync(Guid keycloakId, string fullName, string? description, CancellationToken ct)
+        {
+            var all = await _repo.GetAllAsync(ct);
+            var e = all.FirstOrDefault(u => u.KeycloakId == keycloakId);
+            if (e is null) return null;
+            var newName = (fullName ?? string.Empty).Trim();
+            if (!string.IsNullOrWhiteSpace(newName))
+            {
+                e.FullName = newName;
+                var (first, last) = SplitName(newName);
+                await _kc.UpdateUserProfileAsync(keycloakId, first, last, null, ct);
+            }
+            e.Desc = description;
             await _repo.UpdateAsync(e, ct);
             await _repo.SaveChangesAsync(ct);
             return UserMappings.FromEntity(e);
@@ -98,40 +185,54 @@ namespace APLabApp.BLL.Users
         {
             var e = await _repo.GetByIdAsync(id, ct);
             if (e is null || e.KeycloakId == Guid.Empty) return false;
-
             if (!string.IsNullOrWhiteSpace(currentPassword))
             {
                 if (string.IsNullOrWhiteSpace(e.Email)) return false;
                 var ok = await _kc.VerifyUserPasswordAsync(e.Email, currentPassword, ct);
                 if (!ok) return false;
             }
-
             return await _kc.ResetPasswordAsync(e.KeycloakId, newPassword, ct);
         }
 
         public async Task<UserDto> CreateGuestAsync(CreateUserRequest req, string password, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(req.Email)) throw new ArgumentException("Email is required.");
-
             var email = req.Email.Trim().ToLowerInvariant();
             var username = BuildUsername(email, req.FullName);
-
-            var keycloakId = await _kc.CreateUserAsync(username, email, req.FullName, password, string.Empty, ct);
+            var keycloakId = await _kc.CreateUserAsync(username, email, req.FullName, password, "guest", ct, false);
             if (keycloakId is null) throw new InvalidOperationException("Keycloak user creation failed.");
-
             var entity = req.ToEntity();
             entity.KeycloakId = keycloakId.Value;
-
             await _repo.AddAsync(entity, ct);
             await _repo.SaveChangesAsync(ct);
-
             return UserMappings.FromEntity(entity);
+        }
+
+        public async Task<UserDto> EnsureLocalUserAsync(Guid keycloakId, string? email, string? fullName, CancellationToken ct)
+        {
+            var exists = await _repo.ExistsByKeycloakIdAsync(keycloakId, ct);
+            if (exists)
+            {
+                var all = await _repo.GetAllAsync(ct);
+                var e = all.First(x => x.KeycloakId == keycloakId);
+                return UserMappings.FromEntity(e);
+            }
+            var name = string.IsNullOrWhiteSpace(fullName) ? (email ?? "User") : fullName;
+            var eNew = new User
+            {
+                Id = Guid.NewGuid(),
+                FullName = name,
+                Email = email ?? string.Empty,
+                KeycloakId = keycloakId
+            };
+            await _repo.AddAsync(eNew, ct);
+            await _repo.SaveChangesAsync(ct);
+            return UserMappings.FromEntity(eNew);
         }
 
         private string BuildUsername(string email, string fullName)
         {
             if (_useEmailAsUsername) return email;
-
             var local = email.Split('@')[0];
             var sb = new StringBuilder(local.Length);
             foreach (var ch in local.ToLowerInvariant())
@@ -143,6 +244,14 @@ namespace APLabApp.BLL.Users
             if (string.IsNullOrWhiteSpace(candidate) || candidate.Length < 3)
                 candidate = "user_" + Guid.NewGuid().ToString("N")[..8];
             return candidate;
+        }
+
+        private static (string first, string last) SplitName(string full)
+        {
+            var parts = (full ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 0) return (full ?? string.Empty, "");
+            if (parts.Length == 1) return (parts[0], "");
+            return (parts[0], string.Join(' ', parts.Skip(1)));
         }
     }
 }

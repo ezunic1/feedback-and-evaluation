@@ -4,6 +4,7 @@ namespace APLabApp.Dal.Repositories;
 
 public interface IUserRepository
 {
+    IQueryable<User> Query();
     Task<List<User>> GetAllAsync(CancellationToken ct);
     Task<User?> GetByIdAsync(Guid id, CancellationToken ct);
     Task<bool> ExistsByKeycloakIdAsync(Guid keycloakId, CancellationToken ct);

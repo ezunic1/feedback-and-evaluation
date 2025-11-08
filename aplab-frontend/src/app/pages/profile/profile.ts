@@ -1,18 +1,20 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { PLATFORM_ID } from '@angular/core';
 import { Auth } from '../../services/auth';
 import { ProfileService, MeResponse } from '../../services/profile';
+import { Navbar } from '../../shared/navbar/navbar';
 
 type Role = 'guest' | 'intern' | 'mentor' | 'admin' | 'unknown';
 
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, Navbar],
   templateUrl: './profile.html',
-  styleUrl: './profile.css'
+  styleUrls: ['./profile.css']
 })
 export class Profile implements OnInit {
   private platformId = inject(PLATFORM_ID);
@@ -20,9 +22,15 @@ export class Profile implements OnInit {
   displayName?: string;
   email?: string;
   role: Role = 'unknown';
+  description: string | null = null;
   internSeasonName: string | null = null;
   mentorSeasonName: string | null = null;
   loading = true;
+
+  isEditing = false;
+  saving = false;
+  fullNameInput = '';
+  descInput: string | null = null;
 
   constructor(public auth: Auth, private router: Router, private api: ProfileService) {}
 
@@ -44,17 +52,33 @@ export class Profile implements OnInit {
       this.role = this.normalizeRole(me.role);
       this.internSeasonName = me.internSeasonName ?? null;
       this.mentorSeasonName = me.mentorSeasonName ?? null;
-    } else {
-      const decoded = this.decodeJwt(this.auth.accessToken);
-      const roleFromJwt = this.extractRoleFromJwt(decoded);
-      this.role = this.normalizeRole(roleFromJwt);
+      this.description = me.description ?? null;
     }
     this.loading = false;
   }
 
-  logout() {
-    this.auth.logout();
-    this.router.navigate(['/']);
+  edit() {
+    this.fullNameInput = this.displayName || '';
+    this.descInput = this.description ?? null;
+    this.isEditing = true;
+  }
+
+  cancel() {
+    this.isEditing = false;
+  }
+
+  async save() {
+    if (!this.fullNameInput?.trim()) return;
+    this.saving = true;
+    try {
+      const body = { fullName: this.fullNameInput.trim(), description: this.descInput ?? null };
+      const updated = await this.api.updateMe(body);
+      this.displayName = updated.name ?? body.fullName;
+      this.description = updated.description ?? body.description ?? null;
+      this.isEditing = false;                       // “vrati” na prikaz profila
+    } finally {
+      this.saving = false;
+    }
   }
 
   private normalizeRole(r?: string): Role {
@@ -65,28 +89,5 @@ export class Profile implements OnInit {
     if (x.includes('intern')) return 'intern';
     if (x.includes('guest')) return 'guest';
     return 'unknown';
-  }
-
-  private decodeJwt(token: string | null): any | null {
-    if (!token) return null;
-    try { return JSON.parse(atob(token.split('.')[1] || '')); } catch { return null; }
-  }
-
-  private extractRoleFromJwt(payload: any): string | undefined {
-    if (!payload) return undefined;
-    const realmRoles: string[] | undefined = payload?.realm_access?.roles;
-    if (realmRoles?.length) {
-      const hit = realmRoles.find(r => ['admin','mentor','intern','guest'].includes(r.toLowerCase()));
-      if (hit) return hit;
-    }
-    const res = payload?.resource_access;
-    if (res && typeof res === 'object') {
-      for (const k of Object.keys(res)) {
-        const roles: string[] = res[k]?.roles || [];
-        const hit = roles.find(r => ['admin','mentor','intern','guest'].includes(r.toLowerCase()));
-        if (hit) return hit;
-      }
-    }
-    return undefined;
   }
 }
