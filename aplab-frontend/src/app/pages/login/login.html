@@ -2,6 +2,7 @@
   <div class="login-card">
     <a routerLink="/" class="back-link">← Back to home page</a>
     <h2>Welcome Back</h2>
+
     <form (ngSubmit)="onSubmit()" #f="ngForm" novalidate>
       <div class="form-group">
         <label>Email or Username</label>
@@ -17,7 +18,16 @@
         {{ loading ? 'Logging in...' : 'Login' }}
       </button>
     </form>
-    <p *ngIf="message" class="message">{{ message }}</p>
+
+    <p *ngIf="message && !changeRequired" class="message">{{ message }}</p>
+
+    <div *ngIf="changeRequired" class="form-group" style="text-align:center; margin-top: 12px;">
+      <p class="message">{{ changeMsg }}</p>
+      <a *ngIf="changeUrl" [href]="changeUrl" target="_blank" rel="noopener" class="login-btn" style="display:inline-block; text-decoration:none; text-align:center;">
+        Change password now
+      </a>
+    </div>
+
     <p class="register-link">Don't have an account? <a routerLink="/register">Register here</a></p>
   </div>
 </div>

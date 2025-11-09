@@ -9,7 +9,7 @@ import { Users, CreateUserRequest, Role, UserDto } from '../../services/users';
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './user-create.html',
-  styleUrls: ['./user-create.css']   
+  styleUrls: ['./user-create.css']
 })
 export class UserCreatePage {
   private router = inject(Router);
@@ -63,7 +63,7 @@ export class UserCreatePage {
     this.users.create(req).subscribe({
       next: (_: UserDto) => {
         this.loading = false;
-        this.router.navigate(['/']);
+        this.router.navigate(['/dashboard/admin']);
       },
       error: () => {
         this.loading = false;

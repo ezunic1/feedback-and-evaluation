@@ -130,7 +130,32 @@ namespace APLabApp.BLL.Auth
             var resp = await _http.PostAsync($"{_baseUrl}/realms/{_realm}/protocol/openid-connect/token", new FormUrlEncodedContent(form), ct);
             var body = await resp.Content.ReadAsStringAsync(ct);
             if (!resp.IsSuccessStatusCode)
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(body);
+                    var err = doc.RootElement.TryGetProperty("error", out var e) ? e.GetString() : null;
+                    var desc = doc.RootElement.TryGetProperty("error_description", out var d) ? d.GetString() : null;
+                    var both = $"{err} {desc}".ToLowerInvariant();
+                    if (!string.IsNullOrWhiteSpace(desc) && desc.IndexOf("account is not fully set up", StringComparison.OrdinalIgnoreCase) >= 0)
+                        throw new PasswordChangeRequiredException();
+                    if (!string.IsNullOrWhiteSpace(desc) && desc.IndexOf("update_password", StringComparison.OrdinalIgnoreCase) >= 0)
+                        throw new PasswordChangeRequiredException();
+                    if (both.Contains("resolve_required_actions"))
+                        throw new PasswordChangeRequiredException();
+                    if (string.Equals(err, "invalid_grant", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(desc) && desc.IndexOf("not fully set up", StringComparison.OrdinalIgnoreCase) >= 0)
+                        throw new PasswordChangeRequiredException();
+                }
+                catch (JsonException)
+                {
+                    var low = body.ToLowerInvariant();
+                    if (low.Contains("account is not fully set up") || low.Contains("update_password") || low.Contains("resolve_required_actions"))
+                        throw new PasswordChangeRequiredException();
+                }
+                var updateReq = await UserHasUpdatePasswordRequiredAction(usernameOrEmail, usernameOrEmail, ct);
+                if (updateReq) throw new PasswordChangeRequiredException();
                 throw new InvalidOperationException($"[KC] Login failed: {(int)resp.StatusCode} {body}");
+            }
             var token = JsonSerializer.Deserialize<TokenResponse>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
             return token;
         }
@@ -321,6 +346,32 @@ namespace APLabApp.BLL.Auth
             return map.ToDictionary(kv => kv.Key, kv => kv.Value);
         }
 
+        public string BuildBrowserAuthUrl(string? redirectUri, string? state = null)
+        {
+            if (string.IsNullOrWhiteSpace(redirectUri))
+                return $"{_baseUrl}/realms/{_realm}/account/#/security/signingin";
+            var sb = new StringBuilder();
+            sb.Append($"{_baseUrl}/realms/{_realm}/protocol/openid-connect/auth");
+            var q = new Dictionary<string, string>
+            {
+                ["client_id"] = _publicClientId,
+                ["response_type"] = "code",
+                ["scope"] = "openid",
+                ["redirect_uri"] = redirectUri
+            };
+            if (!string.IsNullOrWhiteSpace(state)) q["state"] = state;
+            var first = true;
+            foreach (var kv in q)
+            {
+                sb.Append(first ? "?" : "&");
+                first = false;
+                sb.Append(Uri.EscapeDataString(kv.Key));
+                sb.Append("=");
+                sb.Append(Uri.EscapeDataString(kv.Value));
+            }
+            return sb.ToString();
+        }
+
         private async Task EnsureAdminAuth(CancellationToken ct)
         {
             var token = await GetAdminToken(ct);
@@ -412,6 +463,26 @@ namespace APLabApp.BLL.Auth
             var roleJson = JsonSerializer.Serialize(new[] { roleObj });
             await _http.PostAsync($"{usersUrl}/{keycloakUserId}/role-mappings/realm", new StringContent(roleJson, Encoding.UTF8, "application/json"), ct);
         }
+
+        private async Task<bool> UserHasUpdatePasswordRequiredAction(string username, string email, CancellationToken ct)
+        {
+            await EnsureAdminAuth(ct);
+            var id = await FindUserIdByUsernameOrEmail(username, email, ct);
+            if (id is null) return false;
+            var resp = await _http.GetAsync($"{_baseUrl}/admin/realms/{_realm}/users/{id}", ct);
+            if (!resp.IsSuccessStatusCode) return false;
+            var body = await resp.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.TryGetProperty("requiredActions", out var ra) && ra.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var el in ra.EnumerateArray())
+                {
+                    var v = el.GetString();
+                    if (string.Equals(v, "UPDATE_PASSWORD", StringComparison.OrdinalIgnoreCase)) return true;
+                }
+            }
+            return false;
+        }
     }
 
     public sealed class TokenResponse
@@ -428,5 +499,10 @@ namespace APLabApp.BLL.Auth
         public int RefreshExpiresIn { get; set; }
         [JsonPropertyName("scope")]
         public string Scope { get; set; } = "";
+    }
+
+    public sealed class PasswordChangeRequiredException : Exception
+    {
+        public PasswordChangeRequiredException() : base("Password change required before token issuance.") { }
     }
 }

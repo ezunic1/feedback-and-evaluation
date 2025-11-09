@@ -40,13 +40,47 @@ namespace APLabApp.Api.Controllers
         }
 
         [HttpPost("login")]
-        public async Task<ActionResult<TokenResponse>> Login([FromBody] LoginRequest req, CancellationToken ct)
+        public async Task<ActionResult> Login([FromBody] LoginRequest req, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(req.UsernameOrEmail) || string.IsNullOrWhiteSpace(req.Password))
                 return BadRequest("Username/email and password are required.");
 
-            var token = await _kc.PasswordTokenAsync(req.UsernameOrEmail, req.Password, ct);
-            return Ok(token);
+            try
+            {
+                var token = await _kc.PasswordTokenAsync(req.UsernameOrEmail, req.Password, ct);
+                return Ok(token);
+            }
+            catch (PasswordChangeRequiredException)
+            {
+                var url = _kc.BuildBrowserAuthUrl(req.RedirectUri);
+                return StatusCode(428, new
+                {
+                    changePasswordUrl = url,
+                    message = "You must change your password before the first login."
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                var msg = ex.Message ?? string.Empty;
+                var m = msg.ToLowerInvariant();
+                if (m.Contains("account is not fully set up") || m.Contains("update_password") || m.Contains("resolve_required_actions"))
+                {
+                    var url = _kc.BuildBrowserAuthUrl(req.RedirectUri);
+                    return StatusCode(428, new
+                    {
+                        changePasswordUrl = url,
+                        message = "You must change your password before the first login."
+                    });
+                }
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpGet("first-login-url")]
+        public ActionResult<BrowserUrlResponse> FirstLoginUrl([FromQuery] string? redirectUri = null)
+        {
+            var url = _kc.BuildBrowserAuthUrl(redirectUri);
+            return Ok(new BrowserUrlResponse(url));
         }
 
         [Authorize]
@@ -66,5 +100,6 @@ namespace APLabApp.Api.Controllers
     }
 
     public record RegisterRequest(string FullName, string Email, string Password);
-    public record LoginRequest(string UsernameOrEmail, string Password);
+    public record LoginRequest(string UsernameOrEmail, string Password, string? RedirectUri);
+    public record BrowserUrlResponse(string Url);
 }

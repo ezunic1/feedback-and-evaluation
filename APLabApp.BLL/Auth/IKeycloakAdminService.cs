@@ -18,5 +18,6 @@ namespace APLabApp.BLL.Auth
         Task<Dictionary<Guid, string[]>> GetRealmRolesBulkAsync(IEnumerable<Guid> keycloakUserIds, CancellationToken ct);
         Task<Dictionary<Guid, string[]>> GetGroupsBulkAsync(IEnumerable<Guid> keycloakUserIds, CancellationToken ct);
         Task<TokenResponse> PasswordTokenAsync(string usernameOrEmail, string password, CancellationToken ct);
+        string BuildBrowserAuthUrl(string? redirectUri, string? state = null);
     }
 }

@@ -1,8 +1,8 @@
 import { Injectable, signal, inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, Subject, throwError, of } from 'rxjs';
-import { catchError, tap, map, shareReplay } from 'rxjs/operators';
+import { catchError, tap, map, shareReplay, switchMap } from 'rxjs/operators';
 
 export type RegisterRequest = { fullName: string; email: string; password: string; };
 export type LoginRequest = { usernameOrEmail: string; password: string; };
@@ -31,9 +31,6 @@ type JwtPayload = {
 
 @Injectable({ providedIn: 'root' })
 export class Auth {
-  private readonly KC_URL = 'http://localhost:8080/realms/ApLabRealm';
-  private readonly CLIENT_ID = 'aplab-api';
-  private readonly CLIENT_SECRET = 'PqguHe7DnP7Lwp31LpSgMKb3tp4PHBeW';
   private readonly api = '/api/auth';
 
   private platformId = inject(PLATFORM_ID);
@@ -58,21 +55,16 @@ export class Auth {
   user() { return this._user(); }
 
   register(data: RegisterRequest): Observable<any> {
-    return this.http.post(`${this.api}/register`, data).pipe(catchError(this.handleError));
+    return this.http.post(`${this.api}/register`, data);
   }
 
   login(data: LoginRequest): Observable<TokenResponse> {
-    const url = `${this.KC_URL}/protocol/openid-connect/token`;
-    let body = new HttpParams()
-      .set('grant_type', 'password')
-      .set('client_id', this.CLIENT_ID)
-      .set('username', data.usernameOrEmail)
-      .set('password', data.password);
-    if (this.CLIENT_SECRET) body = body.set('client_secret', this.CLIENT_SECRET);
-
-    return this.http.post<TokenResponse>(url, body.toString(), {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-    }).pipe(
+    return this.http.post<any>(`${this.api}/login`, data).pipe(
+      map(res => {
+        if (res && typeof res === 'object' && 'access_token' in res) return res as TokenResponse;
+        if (res?.token && typeof res.token === 'object') return res.token as TokenResponse;
+        throw new Error('Unexpected login response.');
+      }),
       tap(t => {
         if (this.isBrowser) {
           this.setItem('access_token', t.access_token ?? '');
@@ -83,7 +75,29 @@ export class Auth {
         this.scheduleProactiveRefresh(true);
       }),
       tap(() => this.sync$().subscribe()),
-      catchError(this.handleError)
+      catchError((err: HttpErrorResponse) => {
+        if (err.status === 428) {
+          const raw = err.error;
+          const url = raw?.changePasswordUrl || raw?.authUrl || raw?.AuthUrl || '';
+          const message = raw?.message || 'You must change your password before the first login.';
+          return throwError(() => ({ changeRequired: true, url, message }));
+        }
+        if (err.status === 400) {
+          const raw = typeof err.error === 'string' ? err.error : JSON.stringify(err.error || {});
+          const low = (raw || '').toLowerCase();
+          if (low.includes('account is not fully set up') || low.includes('update_password') || low.includes('resolve_required_actions')) {
+            return this.http.get<{ url: string }>(`${this.api}/first-login-url`).pipe(
+              switchMap(r => throwError(() => ({
+                changeRequired: true,
+                url: (r as any)?.url ?? '',
+                message: 'You must change your password before the first login.'
+              })))
+            );
+          }
+        }
+        const msg = typeof err.error === 'string' && err.error ? err.error : err.error?.message ?? `Request failed (${err.status})`;
+        return throwError(() => new Error(msg));
+      })
     );
   }
 
@@ -167,29 +181,7 @@ export class Auth {
     if (!this.isBrowser) return of(null);
     const rt = this.getItem('refresh_token');
     if (!rt) return of(null);
-
-    const tokenUrl = `${this.KC_URL}/protocol/openid-connect/token`;
-    let body = new HttpParams()
-      .set('grant_type', 'refresh_token')
-      .set('client_id', this.CLIENT_ID)
-      .set('refresh_token', rt);
-    if (this.CLIENT_SECRET) body = body.set('client_secret', this.CLIENT_SECRET);
-
-    return this.http.post<TokenResponse>(tokenUrl, body.toString(), {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-    }).pipe(
-      tap(res => {
-        if (this.isBrowser) {
-          this.setItem('access_token', res.access_token ?? '');
-          this.setItem('refresh_token', res.refresh_token ?? '');
-        }
-      }),
-      map(res => res?.access_token ?? null),
-      catchError((err: HttpErrorResponse) => {
-        this.logout();
-        return throwError(() => err);
-      })
-    );
+    return of(null);
   }
 
   private sync$(): Observable<any> {
@@ -232,10 +224,14 @@ export class Auth {
     } catch { return null; }
   }
 
-  private handleError(err: HttpErrorResponse) {
-    const msg = typeof err.error === 'string' && err.error ? err.error
-      : err.error?.message ?? `Request failed (${err.status})`;
-    return throwError(() => new Error(msg));
+  private getItem(key: string): string | null {
+    try { return localStorage.getItem(key); } catch { return null; }
+  }
+  private setItem(key: string, value: string) {
+    try { localStorage.setItem(key, value); } catch {}
+  }
+  private removeItem(key: string) {
+    try { localStorage.removeItem(key); } catch {}
   }
 
   private decodeUser(token: string | null) {
@@ -249,15 +245,5 @@ export class Auth {
     } catch {
       return null;
     }
-  }
-
-  private getItem(key: string): string | null {
-    try { return localStorage.getItem(key); } catch { return null; }
-  }
-  private setItem(key: string, value: string) {
-    try { localStorage.setItem(key, value); } catch {}
-  }
-  private removeItem(key: string) {
-    try { localStorage.removeItem(key); } catch {}
   }
 }

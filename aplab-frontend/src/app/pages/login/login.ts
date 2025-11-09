@@ -16,6 +16,10 @@ export class Login {
   loading = false;
   message = '';
 
+  changeRequired = false;
+  changeUrl = '';
+  changeMsg = 'You must change your password before the first login.';
+
   constructor(private auth: Auth, private router: Router) {}
 
   onSubmit() {
@@ -25,14 +29,23 @@ export class Login {
     }
     this.loading = true;
     this.message = '';
+    this.changeRequired = false;
+    this.changeUrl = '';
 
     this.auth.login(this.model).subscribe({
       next: () => {
         this.loading = false;
-        this.router.navigateByUrl('/');
+        this.router.navigateByUrl('/dashboard');
       },
       error: (err: any) => {
         this.loading = false;
+        if (err && err.changeRequired) {
+          this.changeRequired = true;
+          this.changeUrl = err.url || '';
+          this.changeMsg = err.message || this.changeMsg;
+          this.message = '';
+          return;
+        }
         this.message = err?.message || 'Login failed.';
         console.error('[Login] error', err);
       }
