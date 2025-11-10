@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 
 export type MeResponse = {
@@ -30,5 +30,11 @@ export class ProfileService {
 
   async updateMe(body: UpdateMeRequest): Promise<MeResponse> {
     return await firstValueFrom(this.http.put<MeResponse>('/api/users/me', body));
-    }
+  }
+
+  async getPasswordChangeUrl(redirectUri?: string): Promise<string> {
+    const params = redirectUri ? new HttpParams().set('redirectUri', redirectUri) : undefined;
+    const res = await firstValueFrom(this.http.get<{ url?: string; Url?: string }>('/api/auth/first-login-url', { params }));
+    return res.url ?? res.Url ?? '';
+  }
 }

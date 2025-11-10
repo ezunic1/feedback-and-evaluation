@@ -10,5 +10,9 @@ namespace APLabApp.BLL.Users
         string Email,
         int? SeasonId,
         DateTime CreatedAtUtc
-    );
+    )
+    {
+        public string? RoleName { get; init; }
+        public string? SeasonName { get; init; }
+    }
 }

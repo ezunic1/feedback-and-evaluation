@@ -1,0 +1,45 @@
+<app-navbar></app-navbar>
+
+<div class="wrap">
+  <a routerLink="/dashboard" class="back">← Back to dashboard</a>
+  <h2 class="title">{{ season?.name || 'Season' }}</h2>
+
+  <section class="card" *ngIf="!loading; else loadingTpl">
+    <div class="meta">
+      <div>
+        <div class="label">Mentor</div>
+        <div class="value">{{ season?.mentorName || '—' }}</div>
+      </div>
+      <div>
+        <div class="label">Dates</div>
+        <div class="value">{{ season?.startDate | date:'mediumDate' }} – {{ season?.endDate | date:'mediumDate' }}</div>
+      </div>
+      <div>
+        <div class="label">Interns</div>
+        <div class="value">{{ users.length }}</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <h3 class="sub">Interns</h3>
+    <div class="table-wrap" *ngIf="users.length; else empty">
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Email</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let u of users" (click)="openUser(u.id)" class="row-link">
+            <td>{{ u.fullName || '—' }}</td>
+            <td class="muted">{{ u.email }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <ng-template #empty><p class="muted">No interns in this season.</p></ng-template>
+  </section>
+
+  <ng-template #loadingTpl>
+    <div class="skeleton"></div>
+  </ng-template>
+</div>

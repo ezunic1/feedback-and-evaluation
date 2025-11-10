@@ -48,10 +48,9 @@
     </div>
 
     <div class="actions">
-      <a class="btn-ghost"
-     routerLink="/dashboard"
-     *ngIf="role !== 'guest' && !isEditing">Dashboard</a>
+      <a class="btn-ghost" routerLink="/dashboard" *ngIf="role !== 'guest' && !isEditing">Dashboard</a>
       <button class="btn-primary" (click)="edit()" *ngIf="!isEditing">Edit profile</button>
+      <a href="#" (click)="openPasswordChange($event)" *ngIf="isEditing" class="btn-ghost">Change your password?</a>
       <button class="btn-ghost" (click)="cancel()" *ngIf="isEditing">Cancel</button>
       <button class="btn-primary" (click)="save()" [disabled]="saving || !fullNameInput?.trim()" *ngIf="isEditing">
         {{ saving ? 'Saving…' : 'Save changes' }}

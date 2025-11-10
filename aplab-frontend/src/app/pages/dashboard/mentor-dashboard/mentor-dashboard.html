@@ -5,12 +5,34 @@
   </div>
 
   <ng-container *ngIf="!loading; else loadingTpl">
-    <app-ongoing-season [season]="ongoing" title="Ongoing season"></app-ongoing-season>
-    <app-my-seasons-list [seasons]="myPrevious" title="My previous seasons" (open)="openSeason($event)"></app-my-seasons-list>
+    <ng-container *ngIf="ongoing; else noOngoingTpl">
+      <div class="card">
+        <h3 class="card-title">Ongoing season</h3>
+        <app-season-list
+          [seasons]="[ongoing!]"
+          (open)="openSeason($event)">
+        </app-season-list>
+      </div>
+    </ng-container>
+    <ng-template #noOngoingTpl>
+      <div class="card">
+        <h3 class="card-title">Ongoing season</h3>
+        <p class="muted">No ongoing season.</p>
+      </div>
+    </ng-template>
+
+    <app-my-seasons-list
+      [seasons]="myPrevious"
+      title="My previous seasons"
+      (open)="openSeason($event)">
+    </app-my-seasons-list>
 
     <div class="card">
       <h3 class="card-title">Other seasons</h3>
-      <app-season-list [seasons]="others" (open)="openSeason($event)"></app-season-list>
+      <app-season-list
+        [seasons]="others"
+        (open)="openOther($event)">
+      </app-season-list>
     </div>
   </ng-container>
 

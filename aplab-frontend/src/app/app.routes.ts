@@ -18,8 +18,12 @@ export const routes: Routes = [
   { path: 'dashboard/intern', loadComponent: () => import('./pages/dashboard/intern-dashboard/intern-dashboard').then(m => m.InternDashboard) },
 
   { path: 'users/new', loadComponent: () => import('./pages/user-create/user-create').then(m => m.UserCreatePage) },
+  { path: 'users/:id', loadComponent: () => import('./pages/profile-view/profile-view').then(m => m.ProfileView) },
+
   { path: 'seasons/new', component: SeasonCreatePage },
   { path: 'seasons/:id', loadComponent: () => import('./pages/season/season').then(m => m.SeasonPage) },
+
+  { path: 'seasons/view/:id', loadComponent: () => import('./shared/season-view/season-view').then(m => m.SeasonView) },
 
   { path: '**', redirectTo: 'dashboard/admin' }
 ];

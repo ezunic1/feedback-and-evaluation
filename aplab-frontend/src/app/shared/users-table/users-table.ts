@@ -1,7 +1,9 @@
 import { Component, EventEmitter, Input, OnInit, Output, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { Users, Role, PagedResult, UserListItem } from '../../services/users';
+import { Seasons, SeasonDto } from '../../services/seasons';
 
 @Component({
   selector: 'app-users-table',
@@ -12,6 +14,8 @@ import { Users, Role, PagedResult, UserListItem } from '../../services/users';
 })
 export class UsersTable implements OnInit {
   private api = inject(Users);
+  private seasonsApi = inject(Seasons);
+  private router = inject(Router);
 
   @Input() initialPageSize = 10;
   @Input() showFilters = true;
@@ -26,34 +30,45 @@ export class UsersTable implements OnInit {
   totalPages = 0;
   pages: number[] = [];
 
-  sortBy: 'createdAt'|'name'|'email' = 'createdAt';
-  sortDir: 'asc'|'desc' = 'desc';
+  sortBy: 'createdAt' | 'name' | 'email' = 'createdAt';
+  sortDir: 'asc' | 'desc' = 'desc';
 
-  q = '';
-  role: 'all'|Role = 'all';
-  from = '';
-  to = '';
+  role: 'all' | Role = 'all';
+  seasons: SeasonDto[] = [];
+  seasonsLoading = false;
+  selectedSeason: number | 'all' = 'all';
 
   private debounceHandle: any;
+  private rid = 0;
 
   ngOnInit(): void {
     this.pageSize = this.initialPageSize;
+    if (this.role === 'intern') this.loadSeasons();
     this.load();
+  }
+
+  private loadSeasons() {
+    if (this.seasons.length || this.seasonsLoading) return;
+    this.seasonsLoading = true;
+    this.seasonsApi.getAll().subscribe({
+      next: s => { this.seasons = s; this.seasonsLoading = false; },
+      error: () => { this.seasons = []; this.seasonsLoading = false; }
+    });
   }
 
   load() {
     this.loading = true;
+    const id = ++this.rid;
     this.api.getPaged({
       page: this.page,
       pageSize: this.pageSize,
-      q: this.q || undefined,
       role: this.role !== 'all' ? this.role : undefined,
-      from: this.from || undefined,
-      to: this.to || undefined,
       sortBy: this.sortBy,
-      sortDir: this.sortDir
+      sortDir: this.sortDir,
+      seasonId: this.role === 'intern' && this.selectedSeason !== 'all' ? Number(this.selectedSeason) : undefined
     }).subscribe({
       next: (res: PagedResult<UserListItem>) => {
+        if (id !== this.rid) return;
         this.rows = res.items.map(i => ({
           ...i,
           createdAtUtc: i.createdAtUtc ?? (i as any).createdAt ?? null
@@ -66,6 +81,7 @@ export class UsersTable implements OnInit {
         this.loading = false;
       },
       error: () => {
+        if (id !== this.rid) return;
         this.rows = [];
         this.total = 0;
         this.totalPages = 0;
@@ -75,19 +91,32 @@ export class UsersTable implements OnInit {
     });
   }
 
-  onFiltersChanged() {
+  onRoleChanged() {
+    if (this.role === 'intern') {
+      this.selectedSeason = 'all';
+      this.loadSeasons();
+    } else {
+      this.selectedSeason = 'all';
+    }
     this.page = 1;
     clearTimeout(this.debounceHandle);
-    this.debounceHandle = setTimeout(() => this.load(), 250);
+    this.debounceHandle = setTimeout(() => this.load(), 200);
   }
 
-  changeSort(field: 'createdAt'|'name'|'email') {
+  onSeasonChanged() {
+    this.page = 1;
+    clearTimeout(this.debounceHandle);
+    this.debounceHandle = setTimeout(() => this.load(), 200);
+  }
+
+  changeSort(field: 'createdAt' | 'name' | 'email') {
     if (this.sortBy === field) {
       this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
     } else {
       this.sortBy = field;
       this.sortDir = field === 'createdAt' ? 'desc' : 'asc';
     }
+    this.page = 1;
     this.load();
   }
 
@@ -99,6 +128,6 @@ export class UsersTable implements OnInit {
   }
 
   openRow(id: string) {
-    this.open.emit(id);
+    this.router.navigate(['/users', id]);
   }
 }

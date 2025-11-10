@@ -2,19 +2,53 @@
 
 <div class="wrap">
   <a routerLink="/dashboard" class="back">← Back to dashboard</a>
-  <h2 class="title">{{ season?.name || 'Season' }}</h2>
 
+  <div class="title-row">
+    <h2 class="title">{{ season?.name || 'Season' }}</h2>
+
+    <button *ngIf="canEditName && !isEditingName" class="icon-btn" (click)="startEditName()" title="Edit name" aria-label="Edit name">
+      <svg viewBox="0 0 24 24" class="icon">
+        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" fill="currentColor"></path>
+        <path d="M20.71 7.04a1 1 0 0 0 0-1.41L18.37 3.29a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="currentColor"></path>
+      </svg>
+    </button>
+
+    <div *ngIf="canEditName && isEditingName" class="edit-name">
+      <input class="input" [(ngModel)]="nameInput" />
+      <button class="btn" (click)="cancelEditName()">Cancel</button>
+      <button class="btn accent" [disabled]="savingName" (click)="saveName()">{{ savingName ? 'Saving…' : 'Save' }}</button>
+    </div>
+
+    <button *ngIf="canDelete" class="btn danger right" (click)="deleteSeason()">
+      Delete Season
+    </button>
+  </div>
 
   <section class="card" *ngIf="!loading; else loadingTpl">
     <div class="meta">
       <div>
         <div class="label">Mentor</div>
-        <div class="value">{{ season?.mentorName || '—' }}</div>
+        <div class="value">
+          {{ season?.mentorName || '—' }}
+
+          <button *ngIf="canEditMentor && !isEditingMentor" class="mini-btn" (click)="startEditMentor()">Change mentor</button>
+
+          <div *ngIf="canEditMentor && isEditingMentor" class="mentor-edit">
+            <select class="input" [(ngModel)]="mentorInput">
+              <option [ngValue]="null">— None —</option>
+              <option *ngFor="let m of mentors" [ngValue]="m.id">{{ m.fullName }}</option>
+            </select>
+            <button class="btn" (click)="cancelEditMentor()">Cancel</button>
+            <button class="btn accent" [disabled]="savingMentor" (click)="saveMentor()">{{ savingMentor ? 'Saving…' : 'Save' }}</button>
+          </div>
+        </div>
       </div>
+
       <div>
         <div class="label">Dates</div>
         <div class="value">{{ season?.startDate | date:'mediumDate' }} – {{ season?.endDate | date:'mediumDate' }}</div>
       </div>
+
       <div>
         <div class="label">Interns</div>
         <div class="value">{{ users.length }}</div>
@@ -23,23 +57,76 @@
 
     <div class="divider"></div>
 
-    <h3 class="sub">Interns</h3>
-    <ul class="list" *ngIf="users.length; else empty">
-      <li *ngFor="let u of users">
-        <span class="avatar">
-  {{ (u.fullName ?? u.email ?? 'U').substring(0,1) | uppercase }}
-</span>
+    <div class="head-row">
+      <h3 class="sub">Interns</h3>
+      <button *ngIf="canManageInterns" class="btn accent" (click)="openAddIntern()">+ Intern</button>
+    </div>
 
-        <div class="user">
-          <div class="name">{{ u.fullName || '—' }}</div>
-          <div class="email">{{ u.email }}</div>
-        </div>
-      </li>
-    </ul>
+    <div class="table-wrap" *ngIf="users.length; else empty">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th class="actions" *ngIf="canManageInterns">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let u of users">
+            <td (click)="openUser(u.id)" class="linkish">{{ u.fullName || '—' }}</td>
+            <td class="muted" (click)="openUser(u.id)">{{ u.email }}</td>
+            <td class="actions" *ngIf="canManageInterns">
+              <button class="btn small" (click)="removeIntern(u.id)">Remove</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
     <ng-template #empty><p class="muted">No interns in this season.</p></ng-template>
   </section>
 
   <ng-template #loadingTpl>
     <div class="skeleton"></div>
   </ng-template>
+
+  <div class="modal" *ngIf="showAddModal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>Add intern</h3>
+        <button class="icon-btn" (click)="closeAddIntern()">×</button>
+      </div>
+
+      <div class="tabs">
+        <button [class.active]="addTab==='interns'" (click)="addTab='interns'">Interns (free)</button>
+        <button [class.active]="addTab==='guests'" (click)="addTab='guests'">Guests</button>
+      </div>
+
+      <input class="input full" placeholder="Search…" [(ngModel)]="candidateQuery">
+
+      <div class="candidate-list" *ngIf="addTab==='interns'">
+        <div class="row" *ngFor="let u of filteredCandidates(internCandidates)">
+          <div class="who">
+            <div class="name">{{ u.fullName || '—' }}</div>
+            <div class="email muted">{{ u.email }}</div>
+          </div>
+          <button class="btn accent" [disabled]="addingUserId===u.id" (click)="addInternFromList(u)">
+            {{ addingUserId===u.id ? 'Adding…' : 'Add' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="candidate-list" *ngIf="addTab==='guests'">
+        <div class="row" *ngFor="let u of filteredCandidates(guestCandidates)">
+          <div class="who">
+            <div class="name">{{ u.fullName || '—' }}</div>
+            <div class="email muted">{{ u.email }}</div>
+          </div>
+          <button class="btn accent" [disabled]="addingUserId===u.id" (click)="addGuestFromList(u)">
+            {{ addingUserId===u.id ? 'Adding…' : 'Add' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>

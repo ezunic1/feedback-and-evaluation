@@ -1,8 +1,63 @@
-:root{--text:#2f2f2f;--shadow:0 8px 40px rgba(0,0,0,.08)}
-.wrap{max-width:1160px;margin:32px auto 72px;padding:0 24px;color:var(--text);font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif}
-.toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
-.title{margin:0;font-size:2.2rem;font-weight:800;letter-spacing:.2px}
-.card{background:#fff;border-radius:16px;box-shadow:var(--shadow);padding:18px 18px 22px;margin-bottom:22px}
-.card-title{margin:4px 0 10px 0;font-size:1.25rem;font-weight:800}
-.skeleton{height:120px;background:linear-gradient(90deg,#f1f3f4 25%,#f6f7f8 37%,#f1f3f4 63%);border-radius:12px;animation:shimmer 1.4s infinite}
-@keyframes shimmer{0%{background-position:-200px 0}100%{background-position:calc(200px + 100%) 0}}
+:root {
+  --text: #2f2f2f;
+  --shadow: 0 8px 40px rgba(0,0,0,.08);
+  --brand1: #c1d72d;
+}
+
+.wrap {
+  max-width: 1160px;
+  margin: 32px auto 72px;
+  padding: 0 24px;
+  color: var(--text);
+  font-family: Segoe UI, Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.title {
+  margin: 0;
+  font-size: 2.2rem;
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+
+.card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 18px 18px 22px;
+  margin-bottom: 22px;
+}
+
+.card-title {
+  margin: 4px 0 10px 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.skeleton {
+  height: 120px;
+  background: linear-gradient(90deg, #f1f3f4 25%, #f6f7f8 37%, #f1f3f4 63%);
+  border-radius: 12px;
+  animation: shimmer 1.4s infinite;
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+
+:host ::ng-deep app-ongoing-season .accent {
+  background: var(--brand1) !important;
+  background-image: none !important;
+}
+
+:host ::ng-deep app-ongoing-season .card .accent {
+  background: var(--brand1) !important;
+  background-image: none !important;
+}

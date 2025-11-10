@@ -26,9 +26,6 @@ export class AdminDashboard implements OnInit {
   filteredSeasons: SeasonDto[] = [];
 
   qSeason = '';
-  seasonFrom = '';
-  seasonTo = '';
-  seasonSort: 'start-asc'|'start-desc' = 'start-asc';
 
   ngOnInit(): void {
     if (!this.auth.isLoggedIn()) { this.router.navigate(['/login']); return; }
@@ -44,23 +41,10 @@ export class AdminDashboard implements OnInit {
   openUser(id: string) { this.router.navigate(['/users', id]); }
 
   applySeasonFilters() {
-    const from = this.seasonFrom ? new Date(this.seasonFrom) : null;
-    const to = this.seasonTo ? new Date(this.seasonTo) : null;
     const q = this.qSeason.trim().toLowerCase();
-    const arr = this.seasons.filter(s => {
+    this.filteredSeasons = this.seasons.filter(s => {
       const name = (s.name || '').toLowerCase();
-      if (q && !name.includes(q)) return false;
-      const sd = s.startDate ? new Date(s.startDate) : null;
-      const ed = s.endDate ? new Date(s.endDate) : null;
-      if (from && sd && sd < from) return false;
-      if (to && ed && ed > to) return false;
-      return true;
+      return q ? name.includes(q) : true;
     });
-    arr.sort((a,b) => {
-      const ad = new Date(a.startDate).getTime();
-      const bd = new Date(b.startDate).getTime();
-      return this.seasonSort === 'start-asc' ? ad - bd : bd - ad;
-    });
-    this.filteredSeasons = arr;
   }
 }

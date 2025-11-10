@@ -9,7 +9,8 @@ namespace APLabApp.BLL.Users
         string? Role = null,
         DateTime? From = null,
         DateTime? To = null,
-        string SortBy = "createdAt", // createdAt|name|email
-        string SortDir = "desc"      // asc|desc
+        string SortBy = "createdAt",
+        string SortDir = "desc",
+        int? SeasonId = null
     );
 }

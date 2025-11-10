@@ -3,6 +3,7 @@ using System.Linq;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
+using APLabApp.BLL.Auth;
 using APLabApp.BLL.Users;
 using APLabApp.Dal.Repositories;
 using Microsoft.AspNetCore.Authorization;
@@ -16,11 +17,13 @@ namespace APLabApp.Api.Controllers
     {
         private readonly IUserService _service;
         private readonly ISeasonRepository _seasons;
+        private readonly IKeycloakAdminService _kc;
 
-        public UsersController(IUserService service, ISeasonRepository seasons)
+        public UsersController(IUserService service, ISeasonRepository seasons, IKeycloakAdminService kc)
         {
             _service = service;
             _seasons = seasons;
+            _kc = kc;
         }
 
         [Authorize(Roles = "admin,mentor")]
@@ -33,7 +36,18 @@ namespace APLabApp.Api.Controllers
         public async Task<ActionResult<UserDto>> GetById(Guid id, CancellationToken ct)
         {
             var u = await _service.GetByIdAsync(id, ct);
-            return u is null ? NotFound() : Ok(u);
+            if (u is null) return NotFound();
+
+            var role = await ResolveRoleFor(u.KeycloakId, ct);
+            string? seasonName = null;
+            if (u.SeasonId.HasValue)
+            {
+                var s = await _seasons.GetByIdAsync(u.SeasonId.Value, ct);
+                seasonName = s?.Name;
+            }
+
+            var dto = u with { RoleName = role, SeasonName = seasonName };
+            return Ok(dto);
         }
 
         [Authorize(Roles = "admin")]
@@ -49,7 +63,18 @@ namespace APLabApp.Api.Controllers
         public async Task<ActionResult<UserDto>> Update(Guid id, [FromBody] UpdateUserRequest req, CancellationToken ct)
         {
             var updated = await _service.UpdateAsync(id, req, ct);
-            return updated is null ? NotFound() : Ok(updated);
+            if (updated is null) return NotFound();
+
+            var role = await ResolveRoleFor(updated.KeycloakId, ct);
+            string? seasonName = null;
+            if (updated.SeasonId.HasValue)
+            {
+                var s = await _seasons.GetByIdAsync(updated.SeasonId.Value, ct);
+                seasonName = s?.Name;
+            }
+
+            var dto = updated with { RoleName = role, SeasonName = seasonName };
+            return Ok(dto);
         }
 
         [Authorize(Roles = "admin")]
@@ -112,6 +137,28 @@ namespace APLabApp.Api.Controllers
             return Ok(dto);
         }
 
+        [Authorize]
+        [HttpPut("me/password")]
+        public async Task<IActionResult> ChangeMyPassword([FromBody] ChangeMyPasswordRequest req, CancellationToken ct)
+        {
+            if (req is null || string.IsNullOrWhiteSpace(req.CurrentPassword) || string.IsNullOrWhiteSpace(req.NewPassword))
+                return BadRequest("CurrentPassword and NewPassword are required.");
+
+            var sub = User.FindFirstValue("sub") ?? User.FindFirstValue("sid");
+            if (!Guid.TryParse(sub, out var keycloakId))
+                return Unauthorized();
+
+            var u = await _service.GetByKeycloakIdAsync(keycloakId, ct);
+            if (u is null)
+                return Unauthorized();
+
+            var ok = await _service.ChangePasswordAsync(u.Id, req.NewPassword, req.CurrentPassword, ct);
+            if (!ok)
+                return BadRequest("Password change failed.");
+
+            return NoContent();
+        }
+
         private static string ResolveRole(ClaimsPrincipal principal)
         {
             var allRoles = principal.Claims
@@ -125,5 +172,26 @@ namespace APLabApp.Api.Controllers
             if (allRoles.Contains("guest")) return "guest";
             return "guest";
         }
+
+        private async Task<string> ResolveRoleFor(Guid keycloakUserId, CancellationToken ct)
+        {
+            var rolesMap = await _kc.GetRealmRolesBulkAsync(new[] { keycloakUserId }, ct);
+            var groupsMap = await _kc.GetGroupsBulkAsync(new[] { keycloakUserId }, ct);
+
+            rolesMap.TryGetValue(keycloakUserId, out var rr);
+            groupsMap.TryGetValue(keycloakUserId, out var gg);
+
+            var set = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (rr != null) foreach (var r in rr) if (!string.IsNullOrWhiteSpace(r)) set.Add(r);
+            if (gg != null) foreach (var g in gg) if (!string.IsNullOrWhiteSpace(g)) set.Add(g);
+
+            if (set.Contains("admin")) return "admin";
+            if (set.Contains("mentor")) return "mentor";
+            if (set.Contains("intern")) return "intern";
+            if (set.Contains("guest")) return "guest";
+            return "guest";
+        }
     }
+
+    public record ChangeMyPasswordRequest(string CurrentPassword, string NewPassword);
 }

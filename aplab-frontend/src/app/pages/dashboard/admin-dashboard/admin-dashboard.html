@@ -4,7 +4,6 @@
     <h2 class="title">Admin Dashboard</h2>
   </div>
 
-  <!-- SEASONS -->
   <section class="card">
     <div class="section-head">
       <h3 class="card-title">Seasons</h3>
@@ -12,23 +11,38 @@
     </div>
 
     <div class="filters">
-      <input class="input" type="text" placeholder="Search by name" [(ngModel)]="qSeason" (ngModelChange)="applySeasonFilters()">
-      <input class="input" type="date" [(ngModel)]="seasonFrom" (ngModelChange)="applySeasonFilters()">
-      <input class="input" type="date" [(ngModel)]="seasonTo" (ngModelChange)="applySeasonFilters()">
-      <select class="input" [(ngModel)]="seasonSort" (ngModelChange)="applySeasonFilters()">
-        <option value="start-asc">Start date ↑</option>
-        <option value="start-desc">Start date ↓</option>
-      </select>
+      <div class="search">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke-width="2">
+          <circle cx="11" cy="11" r="7" stroke="currentColor"></circle>
+          <line x1="16.65" y1="16.65" x2="21" y2="21" stroke="currentColor"></line>
+        </svg>
+        <input
+          class="search-input"
+          type="search"
+          placeholder="Search seasons by name"
+          [(ngModel)]="qSeason"
+          (ngModelChange)="applySeasonFilters()"
+          aria-label="Search seasons by name"
+        >
+        <button
+          class="clear"
+          *ngIf="qSeason"
+          (click)="qSeason=''; applySeasonFilters()"
+          aria-label="Clear search"
+          type="button"
+        >×</button>
+      </div>
     </div>
 
     <div *ngIf="loadingSeasons" class="skeleton"></div>
-    <app-season-list *ngIf="!loadingSeasons"
-                     [seasons]="filteredSeasons"
-                     (open)="openSeason($event)">
+    <app-season-list
+      *ngIf="!loadingSeasons"
+      [seasons]="filteredSeasons"
+      (open)="openSeason($event)"
+    >
     </app-season-list>
   </section>
 
-  <!-- USERS -->
   <section class="card">
     <div class="section-head">
       <h3 class="card-title">Users</h3>

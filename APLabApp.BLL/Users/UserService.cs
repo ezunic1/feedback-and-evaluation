@@ -15,12 +15,14 @@ namespace APLabApp.BLL.Users
     public class UserService : IUserService
     {
         private readonly IUserRepository _repo;
+        private readonly ISeasonRepository _seasons;
         private readonly IKeycloakAdminService _kc;
         private readonly bool _useEmailAsUsername;
 
-        public UserService(IUserRepository repo, IKeycloakAdminService kc, IConfiguration cfg)
+        public UserService(IUserRepository repo, ISeasonRepository seasons, IKeycloakAdminService kc, IConfiguration cfg)
         {
             _repo = repo;
+            _seasons = seasons;
             _kc = kc;
             _useEmailAsUsername = (cfg["Keycloak:UseEmailAsUsername"] ?? Environment.GetEnvironmentVariable("Keycloak__UseEmailAsUsername"))?
                                   .Equals("true", StringComparison.OrdinalIgnoreCase) == true;
@@ -30,7 +32,9 @@ namespace APLabApp.BLL.Users
         {
             var page = Math.Max(1, q.Page);
             var size = Math.Clamp(q.PageSize, 1, 100);
+
             var query = _repo.Query().AsNoTracking();
+
             if (!string.IsNullOrWhiteSpace(q.Q))
             {
                 var term = q.Q.Trim().ToLower();
@@ -38,8 +42,15 @@ namespace APLabApp.BLL.Users
                     (u.FullName ?? "").ToLower().Contains(term) ||
                     u.Email.ToLower().Contains(term));
             }
+
             if (q.From.HasValue) query = query.Where(u => u.CreatedAtUtc >= q.From!.Value);
             if (q.To.HasValue) query = query.Where(u => u.CreatedAtUtc <= q.To!.Value);
+
+            if (q.SeasonId.HasValue && string.Equals(q.Role, "intern", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(u => u.SeasonId == q.SeasonId.Value);
+            }
+
             query = (q.SortBy?.ToLower(), q.SortDir?.ToLower()) switch
             {
                 ("name", "asc") => query.OrderBy(u => u.FullName).ThenBy(u => u.Id),
@@ -50,6 +61,7 @@ namespace APLabApp.BLL.Users
                     => query.OrderBy(u => u.CreatedAtUtc).ThenBy(u => u.Id),
                 _ => query.OrderByDescending(u => u.CreatedAtUtc).ThenByDescending(u => u.Id)
             };
+
             if (!string.IsNullOrWhiteSpace(q.Role))
             {
                 var role = q.Role!.Trim().ToLower();
@@ -62,15 +74,19 @@ namespace APLabApp.BLL.Users
                 else
                     query = query.Where(u => false);
             }
+
             var total = await query.CountAsync(ct);
+
             var pageEntities = await query
                 .Skip((page - 1) * size)
                 .Take(size)
                 .ToListAsync(ct);
+
             var keycloakIds = pageEntities.Select(x => x.KeycloakId).ToList();
             var rolesMap = await _kc.GetRealmRolesBulkAsync(keycloakIds, ct);
             var groupsMap = await _kc.GetGroupsBulkAsync(keycloakIds, ct);
-            static string PickRole(string[] roles, string[] groups)
+
+            static string PickRoleLocal(string[] roles, string[] groups)
             {
                 var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 if (roles != null) foreach (var r in roles) if (!string.IsNullOrWhiteSpace(r)) set.Add(r);
@@ -81,11 +97,12 @@ namespace APLabApp.BLL.Users
                 if (set.Contains("guest")) return "guest";
                 return "guest";
             }
+
             var items = pageEntities.Select(u =>
             {
                 rolesMap.TryGetValue(u.KeycloakId, out var rr);
                 groupsMap.TryGetValue(u.KeycloakId, out var gg);
-                var role = PickRole(rr ?? Array.Empty<string>(), gg ?? Array.Empty<string>());
+                var role = PickRoleLocal(rr ?? Array.Empty<string>(), gg ?? Array.Empty<string>());
                 return new UserListItemDto(
                     u.Id,
                     u.FullName,
@@ -94,6 +111,7 @@ namespace APLabApp.BLL.Users
                     u.CreatedAtUtc
                 );
             }).ToList();
+
             var totalPages = (int)Math.Ceiling(total / (double)size);
             return new PagedResult<UserListItemDto>(items, page, size, total, totalPages);
         }
@@ -104,14 +122,64 @@ namespace APLabApp.BLL.Users
         public async Task<UserDto?> GetByIdAsync(Guid id, CancellationToken ct)
         {
             var e = await _repo.GetByIdAsync(id, ct);
-            return e is null ? null : UserMappings.FromEntity(e);
+            if (e is null) return null;
+
+            var dto = UserMappings.FromEntity(e);
+
+            string? seasonName = null;
+            if (e.SeasonId.HasValue)
+            {
+                var s = await _seasons.GetByIdAsync(e.SeasonId.Value, ct);
+                seasonName = s?.Name;
+            }
+
+            if (e.KeycloakId != Guid.Empty)
+            {
+                var rrMap = await _kc.GetRealmRolesBulkAsync(new[] { e.KeycloakId }, ct);
+                var ggMap = await _kc.GetGroupsBulkAsync(new[] { e.KeycloakId }, ct);
+                rrMap.TryGetValue(e.KeycloakId, out var rr);
+                ggMap.TryGetValue(e.KeycloakId, out var gg);
+                var role = PickRole(rr ?? Array.Empty<string>(), gg ?? Array.Empty<string>());
+                dto = dto with { RoleName = role, SeasonName = seasonName };
+            }
+            else
+            {
+                dto = dto with { RoleName = "guest", SeasonName = seasonName };
+            }
+
+            return dto;
         }
 
         public async Task<UserDto?> GetByKeycloakIdAsync(Guid keycloakId, CancellationToken ct)
         {
             var all = await _repo.GetAllAsync(ct);
             var e = all.FirstOrDefault(u => u.KeycloakId == keycloakId);
-            return e is null ? null : UserMappings.FromEntity(e);
+            if (e is null) return null;
+
+            var dto = UserMappings.FromEntity(e);
+
+            string? seasonName = null;
+            if (e.SeasonId.HasValue)
+            {
+                var s = await _seasons.GetByIdAsync(e.SeasonId.Value, ct);
+                seasonName = s?.Name;
+            }
+
+            if (e.KeycloakId != Guid.Empty)
+            {
+                var rrMap = await _kc.GetRealmRolesBulkAsync(new[] { e.KeycloakId }, ct);
+                var ggMap = await _kc.GetGroupsBulkAsync(new[] { e.KeycloakId }, ct);
+                rrMap.TryGetValue(e.KeycloakId, out var rr);
+                ggMap.TryGetValue(e.KeycloakId, out var gg);
+                var role = PickRole(rr ?? Array.Empty<string>(), gg ?? Array.Empty<string>());
+                dto = dto with { RoleName = role, SeasonName = seasonName };
+            }
+            else
+            {
+                dto = dto with { RoleName = "guest", SeasonName = seasonName };
+            }
+
+            return dto;
         }
 
         public async Task<UserDto> CreateAsync(CreateUserRequest req, CancellationToken ct)
@@ -252,6 +320,18 @@ namespace APLabApp.BLL.Users
             if (parts.Length == 0) return (full ?? string.Empty, "");
             if (parts.Length == 1) return (parts[0], "");
             return (parts[0], string.Join(' ', parts.Skip(1)));
+        }
+
+        private static string PickRole(IEnumerable<string>? roles, IEnumerable<string>? groups)
+        {
+            var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (roles != null) foreach (var r in roles) if (!string.IsNullOrWhiteSpace(r)) set.Add(r);
+            if (groups != null) foreach (var g in groups) if (!string.IsNullOrWhiteSpace(g)) set.Add(g);
+            if (set.Contains("admin")) return "admin";
+            if (set.Contains("mentor")) return "mentor";
+            if (set.Contains("intern")) return "intern";
+            if (set.Contains("guest")) return "guest";
+            return "guest";
         }
     }
 }

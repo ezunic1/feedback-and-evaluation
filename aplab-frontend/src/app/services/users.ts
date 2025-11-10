@@ -24,12 +24,10 @@ export interface PagedResult<T> {
 export interface UsersQuery {
   page: number;
   pageSize: number;
-  q?: string;
   role?: Role;
-  from?: string;
-  to?: string;
   sortBy?: SortBy;
   sortDir?: 'asc'|'desc';
+  seasonId?: number;
 }
 
 export interface UserDto {
@@ -39,6 +37,7 @@ export interface UserDto {
   roleName: string | null;
   keycloakId: string;
   seasonId: number | null;
+  seasonName?: string | null;
   createdAtUtc?: string | null;
   desc?: string | null;
 }
@@ -47,10 +46,18 @@ export interface CreateUserRequest {
   fullName: string;
   email: string;
   desc: string | null;
-  seasonId: null;
+  seasonId: number | null;
   roleName: Role | null;
   password: string;
   forcePasswordChange: boolean;
+}
+
+export interface UpdateUserRequest {
+  fullName?: string | null;
+  email?: string | null;
+  desc?: string | null;
+  roleName?: Role | null;
+  seasonId?: number | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -62,12 +69,10 @@ export class Users {
     let params = new HttpParams()
       .set('page', String(q.page))
       .set('pageSize', String(q.pageSize));
-    if (q.q) params = params.set('q', q.q);
     if (q.role) params = params.set('role', q.role);
-    if (q.from) params = params.set('from', q.from);
-    if (q.to) params = params.set('to', q.to);
     if (q.sortBy) params = params.set('sortBy', q.sortBy);
     if (q.sortDir) params = params.set('sortDir', q.sortDir);
+    if (typeof q.seasonId === 'number') params = params.set('seasonId', String(q.seasonId));
     return this.http.get<PagedResult<UserListItem>>(this.base, { params });
   }
 
@@ -81,7 +86,19 @@ export class Users {
     }).pipe(map(r => r.items));
   }
 
+  getById(id: string): Observable<UserDto> {
+    return this.http.get<UserDto>(`${this.base}/${id}`);
+  }
+
   create(req: CreateUserRequest): Observable<UserDto> {
     return this.http.post<UserDto>(this.base, req);
+  }
+
+  update(id: string, req: UpdateUserRequest): Observable<UserDto> {
+    return this.http.put<UserDto>(`${this.base}/${id}`, req);
+  }
+
+  delete(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${id}`);
   }
 }

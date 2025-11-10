@@ -75,10 +75,16 @@ export class Profile implements OnInit {
       const updated = await this.api.updateMe(body);
       this.displayName = updated.name ?? body.fullName;
       this.description = updated.description ?? body.description ?? null;
-      this.isEditing = false;                       // “vrati” na prikaz profila
+      this.isEditing = false;
     } finally {
       this.saving = false;
     }
+  }
+
+  async openPasswordChange(ev?: Event) {
+    if (ev) ev.preventDefault();
+    const url = await this.api.getPasswordChangeUrl();
+    if (url) window.open(url, '_blank', 'noopener');
   }
 
   private normalizeRole(r?: string): Role {

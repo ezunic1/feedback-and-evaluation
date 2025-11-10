@@ -1,0 +1,92 @@
+<div class="wrap">
+  <a routerLink="/dashboard" class="back">← Back to dashboard</a>
+  <h2 class="title">{{ user?.fullName || 'User Profile' }}</h2>
+
+  <section class="card" *ngIf="!loading && user; else loadingTpl">
+    <div class="header">
+      <span class="avatar">{{ (user?.fullName || user?.email || 'U').substring(0,1) | uppercase }}</span>
+      <div class="id-block">
+        <div class="name">{{ user?.fullName || '—' }}</div>
+        <div class="email muted">{{ user?.email || '—' }}</div>
+        <span class="role-badge"
+              [class.admin]="(user?.roleName||'')==='admin'"
+              [class.mentor]="(user?.roleName||'')==='mentor'"
+              [class.intern]="(user?.roleName||'')==='intern'"
+              [class.guest]="(user?.roleName||'')==='guest'">
+          {{ (user?.roleName || 'guest') | uppercase }}
+        </span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="info-grid" [class.is-editing]="isEditing">
+      <div class="info-item editable">
+        <div class="label">Full name</div>
+        <ng-container *ngIf="!isEditing; else fullNameEdit">
+          <div class="value">{{ user?.fullName || '—' }}</div>
+        </ng-container>
+        <ng-template #fullNameEdit>
+          <input class="input edit-field" type="text" [(ngModel)]="fullNameInput" name="fullName" required />
+        </ng-template>
+      </div>
+
+      <div class="info-item">
+        <div class="label">Email</div>
+        <div class="value">{{ user?.email || '—' }}</div>
+      </div>
+
+      <div class="info-item editable">
+        <div class="label">Role</div>
+        <ng-container *ngIf="!isEditing; else roleEdit">
+          <div class="value">{{ user?.roleName || 'guest' }}</div>
+        </ng-container>
+        <ng-template #roleEdit>
+          <select class="input edit-field" [(ngModel)]="roleInput" (ngModelChange)="onRoleChanged()">
+            <option value="admin">admin</option>
+            <option value="mentor">mentor</option>
+            <option value="intern">intern</option>
+            <option value="guest">guest</option>
+          </select>
+        </ng-template>
+      </div>
+
+      <div class="info-item editable"
+           *ngIf="isEditing ? roleInput==='intern' : (user?.roleName||'')==='intern'">
+        <div class="label">Season</div>
+        <ng-container *ngIf="!isEditing; else seasonEdit">
+          <div class="value">{{ user?.seasonName || '—' }}</div>
+        </ng-container>
+        <ng-template #seasonEdit>
+          <select class="input edit-field" [(ngModel)]="seasonInput">
+            <option [ngValue]="null">—</option>
+            <option *ngFor="let s of seasons" [ngValue]="s.id">{{ s.name }}</option>
+          </select>
+        </ng-template>
+      </div>
+
+      <div class="info-item wide editable">
+        <div class="label">Description</div>
+        <ng-container *ngIf="!isEditing; else descEdit">
+          <div class="value">{{ user?.desc || '—' }}</div>
+        </ng-container>
+        <ng-template #descEdit>
+          <textarea class="textarea edit-field" rows="4" [(ngModel)]="descInput" name="description"></textarea>
+        </ng-template>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-ghost" (click)="deleteUser()" [disabled]="deleting">Delete user</button>
+      <button class="btn-ghost" (click)="cancel()" *ngIf="isEditing">Cancel</button>
+      <button class="btn-primary" (click)="edit()" *ngIf="!isEditing">Edit profile</button>
+      <button class="btn-primary" (click)="save()" [disabled]="saving || !fullNameInput?.trim()" *ngIf="isEditing">
+        {{ saving ? 'Saving…' : 'Save changes' }}
+      </button>
+    </div>
+  </section>
+
+  <ng-template #loadingTpl>
+    <div class="skeleton"></div>
+  </ng-template>
+</div>

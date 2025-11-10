@@ -14,6 +14,10 @@ import { Navbar } from '../../shared/navbar/navbar';
 export class Landing {
   constructor(public auth: Auth, private router: Router) {}
 
+  get isLoggedIn(): boolean {
+    return this.auth.isLoggedIn();
+  }
+
   logout() {
     this.auth.logout();
     this.router.navigateByUrl('/');

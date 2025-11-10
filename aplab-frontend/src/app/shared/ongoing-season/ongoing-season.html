@@ -1,4 +1,4 @@
-<div class="card">
+<div class="card" [class.clickable]="!!season" (click)="season && open.emit(season.id)">
   <div class="accent-bar"></div>
   <h3 class="card-title">{{ title }}</h3>
   <ng-container *ngIf="season; else noneTpl">

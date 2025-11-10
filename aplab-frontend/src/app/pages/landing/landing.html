@@ -1,6 +1,5 @@
 <div class="landing-container">
-<app-navbar></app-navbar>
-
+  <app-navbar></app-navbar>
 
   <section class="hero">
     <div class="hero-inner">
@@ -12,7 +11,14 @@
           training program offers you structured and well-designed lectures using the
           latest technology while working on a live project!
         </p>
-        <button routerLink="/register" class="cta-btn">Join the Program</button>
+
+        <button
+          *ngIf="!isLoggedIn"
+          routerLink="/register"
+          class="cta-btn"
+        >
+          Join the Program
+        </button>
       </div>
 
       <div class="hero-image">

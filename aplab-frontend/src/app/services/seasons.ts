@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpResponse } from '@angular/common/http';
-import { map, Observable } from 'rxjs';
+import { Observable, map, shareReplay } from 'rxjs';
 
 export interface SeasonDto {
   id: number;
@@ -35,13 +35,41 @@ export interface UpdateSeasonRequest {
   mentorId?: string | null;
 }
 
+export interface SeasonOption {
+  id: number;
+  name: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class Seasons {
   private http = inject(HttpClient);
   private base = '/api/seasons';
+  private cacheAll$?: Observable<SeasonDto[]>;
+  private cacheOptions$?: Observable<SeasonOption[]>;
 
   getAll(): Observable<SeasonDto[]> {
     return this.http.get<SeasonDto[]>(this.base);
+  }
+
+  getAllCached(): Observable<SeasonDto[]> {
+    if (!this.cacheAll$) {
+      this.cacheAll$ = this.http.get<SeasonDto[]>(this.base).pipe(shareReplay(1));
+    }
+    return this.cacheAll$;
+  }
+
+  getOptions(): Observable<SeasonOption[]> {
+    return this.getAll().pipe(map(list => list.map(s => ({ id: s.id, name: s.name }))));
+  }
+
+  getOptionsCached(): Observable<SeasonOption[]> {
+    if (!this.cacheOptions$) {
+      this.cacheOptions$ = this.getAllCached().pipe(
+        map(list => list.map(s => ({ id: s.id, name: s.name }))),
+        shareReplay(1)
+      );
+    }
+    return this.cacheOptions$;
   }
 
   getById(id: number): Observable<SeasonDto> {
