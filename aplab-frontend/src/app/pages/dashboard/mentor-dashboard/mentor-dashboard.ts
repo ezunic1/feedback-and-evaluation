@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { Navbar } from '../../../shared/navbar/navbar';
-import { MySeasonsList } from '../../../shared/my-seasons-list/my-seasons-list';
 import { SeasonList } from '../../../shared/season-list/season-list';
 import { Seasons, SeasonDto } from '../../../services/seasons';
 import { Users, UserListItem } from '../../../services/users';
@@ -16,7 +15,7 @@ type MeDto = { name?: string | null; email?: string | null };
 @Component({
   selector: 'app-mentor-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, Navbar, MySeasonsList, SeasonList],
+  imports: [CommonModule, RouterLink, Navbar, SeasonList],
   templateUrl: './mentor-dashboard.html',
   styleUrl: './mentor-dashboard.css'
 })

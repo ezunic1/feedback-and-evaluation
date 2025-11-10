@@ -20,10 +20,10 @@
 
     <div class="divider"></div>
 
-    <div class="info-grid" [class.is-editing]="isEditing">
+    <div class="info-grid" [class.is-editing]="isEditing && isAdmin">
       <div class="info-item editable">
         <div class="label">Full name</div>
-        <ng-container *ngIf="!isEditing; else fullNameEdit">
+        <ng-container *ngIf="!(isEditing && isAdmin); else fullNameEdit">
           <div class="value">{{ user?.fullName || '—' }}</div>
         </ng-container>
         <ng-template #fullNameEdit>
@@ -38,7 +38,7 @@
 
       <div class="info-item editable">
         <div class="label">Role</div>
-        <ng-container *ngIf="!isEditing; else roleEdit">
+        <ng-container *ngIf="!(isEditing && isAdmin); else roleEdit">
           <div class="value">{{ user?.roleName || 'guest' }}</div>
         </ng-container>
         <ng-template #roleEdit>
@@ -52,9 +52,9 @@
       </div>
 
       <div class="info-item editable"
-           *ngIf="isEditing ? roleInput==='intern' : (user?.roleName||'')==='intern'">
+           *ngIf="(isEditing && isAdmin) ? roleInput==='intern' : (user?.roleName||'')==='intern'">
         <div class="label">Season</div>
-        <ng-container *ngIf="!isEditing; else seasonEdit">
+        <ng-container *ngIf="!(isEditing && isAdmin); else seasonEdit">
           <div class="value">{{ user?.seasonName || '—' }}</div>
         </ng-container>
         <ng-template #seasonEdit>
@@ -67,7 +67,7 @@
 
       <div class="info-item wide editable">
         <div class="label">Description</div>
-        <ng-container *ngIf="!isEditing; else descEdit">
+        <ng-container *ngIf="!(isEditing && isAdmin); else descEdit">
           <div class="value">{{ user?.desc || '—' }}</div>
         </ng-container>
         <ng-template #descEdit>
@@ -75,8 +75,7 @@
         </ng-template>
       </div>
     </div>
-
-    <div class="actions">
+    <div class="actions" *ngIf="isAdmin">
       <button class="btn-ghost" (click)="deleteUser()" [disabled]="deleting">Delete user</button>
       <button class="btn-ghost" (click)="cancel()" *ngIf="isEditing">Cancel</button>
       <button class="btn-primary" (click)="edit()" *ngIf="!isEditing">Edit profile</button>

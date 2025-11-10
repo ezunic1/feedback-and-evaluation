@@ -86,6 +86,10 @@ export class Users {
     }).pipe(map(r => r.items));
   }
 
+  getBySeason(seasonId: number): Observable<UserListItem[]> {
+    return this.http.get<UserListItem[]>(`${this.base}/by-season/${seasonId}`);
+  }
+
   getById(id: string): Observable<UserDto> {
     return this.http.get<UserDto>(`${this.base}/${id}`);
   }

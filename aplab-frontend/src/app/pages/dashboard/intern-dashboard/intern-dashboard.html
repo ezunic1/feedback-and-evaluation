@@ -5,24 +5,30 @@
   </div>
 
   <ng-container *ngIf="!loading; else loadingTpl">
-    <app-ongoing-season [season]="mySeason" title="My season"></app-ongoing-season>
-
-    <div class="card" *ngIf="peers?.length">
-      <h3 class="card-title">Interns in my season</h3>
-      <ul class="list">
-        <li *ngFor="let u of peers">
-          <span class="avatar">{{ (u.fullName || u.email || 'U') | slice:0:1 | uppercase }}</span>
-          <div class="user">
-            <div class="name">{{ u.fullName || '—' }}</div>
-            <div class="email">{{ u.email }}</div>
-          </div>
-        </li>
-      </ul>
+    <div class="card">
+      <h3 class="card-title">My season</h3>
+      <ng-container *ngIf="mySeason; else noMine">
+        <app-season-list
+          [seasons]="[mySeason!]"
+          (open)="openSeason($event)">
+        </app-season-list>
+      </ng-container>
+      <ng-template #noMine>
+        <p class="muted">You are not assigned to a season.</p>
+      </ng-template>
     </div>
 
     <div class="card">
       <h3 class="card-title">Other seasons</h3>
-      <app-season-list [seasons]="others" (open)="openSeason($event)"></app-season-list>
+      <ng-container *ngIf="others?.length; else noOthers">
+        <app-season-list
+          [seasons]="others"
+          (open)="openSeason($event)">
+        </app-season-list>
+      </ng-container>
+      <ng-template #noOthers>
+        <p class="muted">No other seasons.</p>
+      </ng-template>
     </div>
   </ng-container>
 

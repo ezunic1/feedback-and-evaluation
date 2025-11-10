@@ -20,7 +20,7 @@ namespace APLabApp.Api.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = "admin,mentor")]
+        [Authorize(Roles = "admin,mentor,intern")]
         public async Task<ActionResult<IReadOnlyList<SeasonDto>>> GetAll(CancellationToken ct)
             => Ok(await _service.GetAllAsync(ct));
 
@@ -97,9 +97,6 @@ namespace APLabApp.Api.Controllers
         [HttpGet("{id:int}/users")]
         public async Task<ActionResult<IReadOnlyList<UserDto>>> GetUsers(int id, CancellationToken ct)
         {
-            var sub = User.FindFirstValue("sub");
-            Guid.TryParse(sub, out var kcId);
-
             var roles = User.Claims
                 .Where(c => c.Type == ClaimTypes.Role || c.Type == "roles")
                 .Select(c => c.Value)
@@ -109,22 +106,10 @@ namespace APLabApp.Api.Controllers
             var isMentor = roles.Contains("mentor");
             var isIntern = roles.Contains("intern");
 
-            if (isAdmin || isMentor)
+            if (isAdmin || isMentor || isIntern)
             {
                 var listAll = await _service.GetUsersAsync(id, ct);
                 return Ok(listAll);
-            }
-
-            if (isIntern)
-            {
-                if (kcId == Guid.Empty) return Forbid();
-                var season = await _service.GetByIdAsync(id, includeUsers: false, ct);
-                if (season is null) return NotFound();
-
-                var users = await _service.GetUsersAsync(id, ct);
-                if (!users.Any(u => u.KeycloakId == kcId)) return Forbid();
-
-                return Ok(users);
             }
 
             return Forbid();

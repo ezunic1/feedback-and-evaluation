@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Users, UserDto, UpdateUserRequest, Role } from '../../services/users';
 import { Seasons, SeasonDto } from '../../services/seasons';
+import { Auth } from '../../services/auth';
 
 @Component({
   selector: 'app-profile-view',
@@ -17,6 +18,7 @@ export class ProfileView implements OnInit {
   private router = inject(Router);
   private api = inject(Users);
   private seasonsApi = inject(Seasons);
+  private auth = inject(Auth);
 
   id = '';
   loading = true;
@@ -26,6 +28,8 @@ export class ProfileView implements OnInit {
   user: UserDto | null = null;
 
   isEditing = false;
+  isAdmin = false;
+
   fullNameInput = '';
   descInput: string | null = null;
   roleInput: Role = 'guest';
@@ -35,6 +39,9 @@ export class ProfileView implements OnInit {
   seasonsLoading = false;
 
   ngOnInit(): void {
+    // utvrdi rolu
+    this.isAdmin = (this.auth.roles?.() || []).map(r => r.toLowerCase()).includes('admin');
+
     this.id = String(this.route.snapshot.paramMap.get('id') || '');
     if (!this.id) {
       this.router.navigate(['/users']);
@@ -71,7 +78,7 @@ export class ProfileView implements OnInit {
         this.descInput = u.desc ?? null;
         this.roleInput = role;
         this.seasonInput = u.seasonId ?? null;
-        if (role === 'intern') this.loadSeasons();
+        if (role === 'intern' && this.isAdmin) this.loadSeasons();
         this.loading = false;
       },
       error: () => {
@@ -82,8 +89,9 @@ export class ProfileView implements OnInit {
   }
 
   edit(): void {
-    if (!this.user) return;
+    if (!this.user || !this.isAdmin) return;
     this.isEditing = true;
+    if (this.roleInput === 'intern') this.loadSeasons();
   }
 
   cancel(): void {
@@ -96,6 +104,7 @@ export class ProfileView implements OnInit {
   }
 
   onRoleChanged(): void {
+    if (!this.isAdmin) return;
     if (this.roleInput === 'intern') {
       this.loadSeasons();
     } else {
@@ -103,8 +112,8 @@ export class ProfileView implements OnInit {
     }
   }
 
-  async save(): Promise<void> {
-    if (!this.user) return;
+  save(): void {
+    if (!this.user || !this.isAdmin) return;
     this.saving = true;
     const body: UpdateUserRequest = {
       fullName: this.fullNameInput?.trim() || this.user.fullName || '',
@@ -118,14 +127,12 @@ export class ProfileView implements OnInit {
         this.isEditing = false;
         this.saving = false;
       },
-      error: () => {
-        this.saving = false;
-      }
+      error: () => { this.saving = false; }
     });
   }
 
   deleteUser(): void {
-    if (!this.user || this.deleting) return;
+    if (!this.user || this.deleting || !this.isAdmin) return;
     const ok = confirm('Delete this user? This cannot be undone.');
     if (!ok) return;
     this.deleting = true;
@@ -134,9 +141,7 @@ export class ProfileView implements OnInit {
         this.deleting = false;
         this.router.navigate(['/users']);
       },
-      error: () => {
-        this.deleting = false;
-      }
+      error: () => { this.deleting = false; }
     });
   }
 }

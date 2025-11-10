@@ -2,7 +2,6 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { Navbar } from '../../../shared/navbar/navbar';
-import { OngoingSeason } from '../../../shared/ongoing-season/ongoing-season';
 import { SeasonList } from '../../../shared/season-list/season-list';
 import { Seasons, SeasonDto, UserDto } from '../../../services/seasons';
 import { Auth } from '../../../services/auth';
@@ -10,7 +9,7 @@ import { Auth } from '../../../services/auth';
 @Component({
   selector: 'app-intern-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, Navbar, OngoingSeason, SeasonList],
+  imports: [CommonModule, RouterLink, Navbar,  SeasonList],
   templateUrl: './intern-dashboard.html',
   styleUrl: './intern-dashboard.css'
 })

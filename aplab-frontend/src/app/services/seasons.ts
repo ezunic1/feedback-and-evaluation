@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpResponse } from '@angular/common/http';
-import { Observable, map, shareReplay } from 'rxjs';
+import { Observable, map, shareReplay, tap } from 'rxjs';
 
 export interface SeasonDto {
   id: number;
@@ -47,6 +47,11 @@ export class Seasons {
   private cacheAll$?: Observable<SeasonDto[]>;
   private cacheOptions$?: Observable<SeasonOption[]>;
 
+  private invalidateCaches(): void {
+    this.cacheAll$ = undefined;
+    this.cacheOptions$ = undefined;
+  }
+
   getAll(): Observable<SeasonDto[]> {
     return this.http.get<SeasonDto[]>(this.base);
   }
@@ -56,6 +61,10 @@ export class Seasons {
       this.cacheAll$ = this.http.get<SeasonDto[]>(this.base).pipe(shareReplay(1));
     }
     return this.cacheAll$;
+  }
+
+  getBrowse(): Observable<SeasonDto[]> {
+    return this.http.get<SeasonDto[]>(`${this.base}/browse`);
   }
 
   getOptions(): Observable<SeasonOption[]> {
@@ -81,8 +90,9 @@ export class Seasons {
   }
 
   getMySeason(): Observable<SeasonDto | null> {
-    return this.http.get<SeasonDto>(`${this.base}/me`, { observe: 'response' })
-      .pipe(map((r: HttpResponse<SeasonDto>) => r.status === 204 ? null : (r.body as SeasonDto)));
+    return this.http
+      .get<SeasonDto>(`${this.base}/me`, { observe: 'response' })
+      .pipe(map((r: HttpResponse<SeasonDto>) => (r.status === 204 ? null : (r.body as SeasonDto))));
   }
 
   getMySeasonUsers(): Observable<UserDto[]> {
@@ -90,34 +100,40 @@ export class Seasons {
   }
 
   create(req: CreateSeasonRequest): Observable<SeasonDto> {
-    return this.http.post<SeasonDto>(this.base, req);
+    return this.http.post<SeasonDto>(this.base, req).pipe(tap(() => this.invalidateCaches()));
   }
 
   update(id: number, req: UpdateSeasonRequest): Observable<SeasonDto> {
-    return this.http.put<SeasonDto>(`${this.base}/${id}`, req);
+    return this.http.put<SeasonDto>(`${this.base}/${id}`, req).pipe(tap(() => this.invalidateCaches()));
   }
 
   delete(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.base}/${id}`);
+    return this.http.delete<void>(`${this.base}/${id}`).pipe(tap(() => this.invalidateCaches()));
   }
 
   assignMentor(id: number, mentorId: string | null): Observable<void> {
-    return this.http.post<void>(`${this.base}/${id}/assign-mentor`, { mentorId });
+    return this.http
+      .post<void>(`${this.base}/${id}/assign-mentor`, { mentorId })
+      .pipe(tap(() => this.invalidateCaches()));
   }
 
   addUser(id: number, userId: string): Observable<void> {
-    return this.http.post<void>(`${this.base}/${id}/users/${userId}`, {});
+    return this.http.post<void>(`${this.base}/${id}/users/${userId}`, {}).pipe(tap(() => this.invalidateCaches()));
   }
 
   removeUser(id: number, userId: string): Observable<void> {
-    return this.http.delete<void>(`${this.base}/${id}/users/${userId}`);
+    return this.http.delete<void>(`${this.base}/${id}/users/${userId}`).pipe(tap(() => this.invalidateCaches()));
   }
 
   mentorAddUser(seasonId: number, userId: string): Observable<void> {
-    return this.http.post<void>(`${this.base}/${seasonId}/users/${userId}/by-mentor`, {});
+    return this.http
+      .post<void>(`${this.base}/${seasonId}/users/${userId}/by-mentor`, {})
+      .pipe(tap(() => this.invalidateCaches()));
   }
 
   mentorRemoveUser(seasonId: number, userId: string): Observable<void> {
-    return this.http.delete<void>(`${this.base}/${seasonId}/users/${userId}/by-mentor`);
+    return this.http
+      .delete<void>(`${this.base}/${seasonId}/users/${userId}/by-mentor`)
+      .pipe(tap(() => this.invalidateCaches()));
   }
 }

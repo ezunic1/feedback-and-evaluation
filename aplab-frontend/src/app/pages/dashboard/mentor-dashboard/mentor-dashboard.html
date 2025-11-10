@@ -21,11 +21,18 @@
       </div>
     </ng-template>
 
-    <app-my-seasons-list
-      [seasons]="myPrevious"
-      title="My previous seasons"
-      (open)="openSeason($event)">
-    </app-my-seasons-list>
+    <div class="card">
+      <h3 class="card-title">My previous seasons</h3>
+      <ng-container *ngIf="myPrevious?.length; else noPrevTpl">
+        <app-season-list
+          [seasons]="myPrevious"
+          (open)="openSeason($event)">
+        </app-season-list>
+      </ng-container>
+      <ng-template #noPrevTpl>
+        <p class="muted">No previous seasons.</p>
+      </ng-template>
+    </div>
 
     <div class="card">
       <h3 class="card-title">Other seasons</h3>

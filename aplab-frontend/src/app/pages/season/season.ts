@@ -27,7 +27,6 @@ export class SeasonPage implements OnInit {
   season: SeasonDto | null = null;
   users: SeasonUserDto[] = [];
 
-  role: string | null = null;
   isAdmin = false;
   isMentor = false;
   canEditMentor = false;
@@ -55,17 +54,14 @@ export class SeasonPage implements OnInit {
 
   ngOnInit(): void {
     if (!this.auth.isLoggedIn()) { this.router.navigate(['/login']); return; }
-
     const roles = this.auth.roles().map(r => r.toLowerCase());
     this.isAdmin = roles.includes('admin');
     this.isMentor = roles.includes('mentor');
-
     const showAdminUi = this.isAdmin && !this.isMentor;
     this.canEditMentor = showAdminUi;
     this.canEditName = showAdminUi;
     this.canDelete = showAdminUi;
     this.canManageInterns = this.isAdmin || this.isMentor;
-
     this.id = Number(this.route.snapshot.paramMap.get('id'));
     if (!this.id) { this.router.navigate(['/dashboard']); return; }
     this.loadSeason();
@@ -87,7 +83,22 @@ export class SeasonPage implements OnInit {
   private loadUsers(): void {
     this.seasonsApi.getUsers(this.id).subscribe({
       next: us => { this.users = us; this.loading = false; },
-      error: () => { this.users = []; this.loading = false; }
+      error: () => {
+        this.usersApi.getBySeason(this.id).subscribe({
+          next: list => {
+            this.users = list.map(x => ({
+              id: x.id,
+              fullName: x.fullName ?? '',
+              email: x.email,
+              roleName: x.role,
+              keycloakId: '',
+              seasonId: this.id
+            }));
+            this.loading = false;
+          },
+          error: () => { this.users = []; this.loading = false; }
+        });
+      }
     });
   }
 
@@ -96,18 +107,31 @@ export class SeasonPage implements OnInit {
     this.isEditingName = true;
     this.nameInput = this.season.name;
   }
+
   cancelEditName(): void {
     if (!this.season) return;
     this.isEditingName = false;
     this.nameInput = this.season.name;
   }
+
   saveName(): void {
     if (!this.season || !this.canEditName) return;
     const name = (this.nameInput || '').trim();
     if (!name) return;
     this.savingName = true;
-    this.seasonsApi.update(this.season.id, { name }).subscribe({
-      next: s => { this.season = s; this.isEditingName = false; this.savingName = false; },
+    const body = {
+      name,
+      startDate: this.season.startDate,
+      endDate: this.season.endDate,
+      mentorId: this.season.mentorId ?? null
+    };
+    this.seasonsApi.update(this.season.id, body).subscribe({
+      next: s => {
+        this.season = s;
+        this.isEditingName = false;
+        this.savingName = false;
+        this.mentorInput = this.season?.mentorId ?? null;
+      },
       error: () => { this.savingName = false; }
     });
   }
@@ -117,17 +141,20 @@ export class SeasonPage implements OnInit {
     this.isEditingMentor = true;
     this.loadMentors();
   }
+
   cancelEditMentor(): void {
     if (!this.season) return;
     this.isEditingMentor = false;
     this.mentorInput = this.season.mentorId ?? null;
   }
+
   private loadMentors(): void {
     this.usersApi.getMentors(200).subscribe({
       next: list => { this.mentors = list.map(x => ({ id: x.id, fullName: x.fullName || x.email || '—' })); },
       error: () => { this.mentors = []; }
     });
   }
+
   saveMentor(): void {
     if (!this.season || !this.canEditMentor) return;
     this.savingMentor = true;
@@ -153,18 +180,16 @@ export class SeasonPage implements OnInit {
     });
   }
 
-  openUser(id: string): void { this.router.navigate(['/users', id]); }
+  openUser(id: string): void {
+    this.router.navigate(['/users', id]);
+  }
 
   removeIntern(userId: string): void {
     if (!this.season || !this.canManageInterns) return;
     const call$ = this.isAdmin
       ? this.seasonsApi.removeUser(this.season.id, userId)
       : this.seasonsApi.mentorRemoveUser(this.season.id, userId);
-
-    call$.subscribe({
-      next: () => this.loadUsers(),
-      error: () => {}
-    });
+    call$.subscribe({ next: () => this.loadUsers(), error: () => {} });
   }
 
   openAddIntern(): void {
@@ -174,6 +199,7 @@ export class SeasonPage implements OnInit {
     this.candidateQuery = '';
     this.loadCandidates();
   }
+
   closeAddIntern(): void {
     this.showAddModal = false;
     this.addingUserId = null;
@@ -227,7 +253,6 @@ export class SeasonPage implements OnInit {
     const call$ = this.isAdmin
       ? this.seasonsApi.addUser(this.season.id, u.id)
       : this.seasonsApi.mentorAddUser(this.season.id, u.id);
-
     call$.subscribe({
       next: () => {
         this.addingUserId = null;
@@ -241,7 +266,6 @@ export class SeasonPage implements OnInit {
   addGuestFromList(u: UserListItem): void {
     if (!this.season || !this.canManageInterns) return;
     this.addingUserId = u.id;
-
     if (this.isAdmin) {
       const body: UpdateUserRequest = { fullName: u.fullName || '', desc: null, roleName: 'intern', seasonId: null };
       this.usersApi.update(u.id, body).subscribe({

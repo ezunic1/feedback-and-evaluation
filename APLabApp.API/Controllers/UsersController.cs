@@ -8,6 +8,7 @@ using APLabApp.BLL.Users;
 using APLabApp.Dal.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Collections.Generic;
 
 namespace APLabApp.Api.Controllers
 {
@@ -31,7 +32,7 @@ namespace APLabApp.Api.Controllers
         public async Task<ActionResult<PagedResult<UserListItemDto>>> Get([FromQuery] UsersQuery q, CancellationToken ct)
             => Ok(await _service.GetPagedAsync(q, ct));
 
-        [Authorize(Roles = "admin,mentor")]
+        [Authorize]
         [HttpGet("{id:guid}")]
         public async Task<ActionResult<UserDto>> GetById(Guid id, CancellationToken ct)
         {
@@ -159,6 +160,15 @@ namespace APLabApp.Api.Controllers
             return NoContent();
         }
 
+        [Authorize]
+        [HttpGet("by-season/{seasonId:int}")]
+        public async Task<ActionResult<IEnumerable<UserListItemDto>>> GetBySeason(int seasonId, CancellationToken ct)
+        {
+            var q = new UsersQuery { Page = 1, PageSize = 1000, SeasonId = seasonId, Role = "intern", SortBy = "name", SortDir = "asc" };
+            var res = await _service.GetPagedAsync(q, ct);
+            return Ok(res.Items);
+        }
+
         private static string ResolveRole(ClaimsPrincipal principal)
         {
             var allRoles = principal.Claims
@@ -181,7 +191,7 @@ namespace APLabApp.Api.Controllers
             rolesMap.TryGetValue(keycloakUserId, out var rr);
             groupsMap.TryGetValue(keycloakUserId, out var gg);
 
-            var set = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (rr != null) foreach (var r in rr) if (!string.IsNullOrWhiteSpace(r)) set.Add(r);
             if (gg != null) foreach (var g in gg) if (!string.IsNullOrWhiteSpace(g)) set.Add(g);
 

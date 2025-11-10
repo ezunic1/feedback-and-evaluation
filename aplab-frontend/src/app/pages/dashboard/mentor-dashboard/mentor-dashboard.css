@@ -40,6 +40,10 @@
   font-weight: 800;
 }
 
+.muted {
+  color: #6b6b6b;
+}
+
 .skeleton {
   height: 120px;
   background: linear-gradient(90deg, #f1f3f4 25%, #f6f7f8 37%, #f1f3f4 63%);
