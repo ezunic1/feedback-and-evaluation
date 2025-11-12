@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, NgForm } from '@angular/forms';
 import { Auth, RegisterRequest } from '../../services/auth';
 import { Spinner } from '../../shared/spinner/spinner';
 
@@ -20,23 +20,25 @@ export class Register {
 
   constructor(private auth: Auth, private router: Router) {}
 
-  onSubmit() {
+  onSubmit(form: NgForm) {
     if (this.loading) return;
 
-    if (!this.model.fullName || !this.model.email || !this.model.password || !this.confirmPassword) {
-      this.message = 'Please fill in all fields.';
-      return;
-    }
-    if (this.model.password !== this.confirmPassword) {
-      this.message = 'Passwords do not match.';
+    const fullName = (this.model.fullName || '').trim();
+    const email = (this.model.email || '').trim().toLowerCase();
+    const password = this.model.password || '';
+    const confirm = this.confirmPassword || '';
+
+    if (!fullName || !email || !password || !confirm || confirm !== password || form.invalid) {
+      form.form.markAllAsTouched();
+      this.message = confirm && password && confirm !== password ? 'Passwords do not match.' : 'Please fix the errors above.';
       return;
     }
 
     this.loading = true;
     this.message = '';
 
-    this.auth.register(this.model).subscribe({
-      next: (_res: any) => {
+    this.auth.register({ fullName, email, password }).subscribe({
+      next: () => {
         this.loading = false;
         this.message = 'Registration successful! Redirecting to login...';
         setTimeout(() => this.router.navigate(['/login']), 1200);

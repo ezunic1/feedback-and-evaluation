@@ -1,14 +1,15 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using APLabApp.BLL.Errors;
+using Microsoft.Extensions.Configuration;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Collections.Concurrent;
 
 namespace APLabApp.BLL.Auth
 {
@@ -39,8 +40,10 @@ namespace APLabApp.BLL.Auth
             var usersUrl = $"{_baseUrl}/admin/realms/{_realm}/users";
             var (firstName, lastName) = SplitFullName(fullName);
             var payload = new { username, email, firstName, lastName, enabled = true, emailVerified = true };
+
             var resp = await _http.PostAsync(usersUrl, JsonContent(payload), ct);
             var createBody = await resp.Content.ReadAsStringAsync(ct);
+
             string? idStr = null;
             if (resp.IsSuccessStatusCode)
             {
@@ -49,15 +52,16 @@ namespace APLabApp.BLL.Auth
             }
             else if ((int)resp.StatusCode == 409)
             {
-                var found = await FindUserIdByUsernameOrEmail(username, email, ct);
-                if (found.HasValue) idStr = found.Value.ToString();
+                throw new ConflictException("Username or email already exists in identity provider.");
             }
             else
             {
                 throw new InvalidOperationException($"[KC] Create user failed: {(int)resp.StatusCode} {createBody}");
             }
+
             if (string.IsNullOrWhiteSpace(idStr) || !Guid.TryParse(idStr, out var keycloakId))
                 throw new InvalidOperationException("[KC] Could not resolve created user id.");
+
             var pwdPayload = new { type = "password", value = password, temporary = temporaryPassword };
             var pwdResp = await _http.PutAsync($"{usersUrl}/{keycloakId}/reset-password", JsonContent(pwdPayload), ct);
             if (!pwdResp.IsSuccessStatusCode)
@@ -65,6 +69,7 @@ namespace APLabApp.BLL.Auth
                 var b = await pwdResp.Content.ReadAsStringAsync(ct);
                 throw new InvalidOperationException($"[KC] Set password failed: {(int)pwdResp.StatusCode} {b}");
             }
+
             if (!string.IsNullOrWhiteSpace(role))
             {
                 var roleName = role.Trim().ToLowerInvariant();
@@ -89,6 +94,7 @@ namespace APLabApp.BLL.Auth
                     await AssignRealmRoleIfExists(usersUrl, keycloakId, roleName, ct);
                 }
             }
+
             return keycloakId;
         }
 

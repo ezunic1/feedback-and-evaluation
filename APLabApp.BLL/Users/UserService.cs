@@ -1,14 +1,15 @@
-﻿using System;
+﻿using APLabApp.BLL.Auth;
+using APLabApp.BLL.Errors;
+using APLabApp.Dal.Entities;
+using APLabApp.Dal.Repositories;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Collections.Generic;
-using APLabApp.Dal.Repositories;
-using APLabApp.BLL.Auth;
-using APLabApp.Dal.Entities;
-using Microsoft.Extensions.Configuration;
-using Microsoft.EntityFrameworkCore;
-using System.Text;
 
 namespace APLabApp.BLL.Users
 {
@@ -260,15 +261,42 @@ namespace APLabApp.BLL.Users
 
         public async Task<UserDto> CreateGuestAsync(CreateUserRequest req, string password, CancellationToken ct)
         {
-            if (string.IsNullOrWhiteSpace(req.Email)) throw new ArgumentException("Email is required.");
+            if (string.IsNullOrWhiteSpace(req.FullName))
+                throw new ValidationException("Full name is required.");
+            if (string.IsNullOrWhiteSpace(req.Email))
+                throw new ValidationException("Email is required.");
+
             var email = req.Email.Trim().ToLowerInvariant();
-            var username = BuildUsername(email, req.FullName);
-            var keycloakId = await _kc.CreateUserAsync(username, email, req.FullName, password, "guest", ct, false);
-            if (keycloakId is null) throw new InvalidOperationException("Keycloak user creation failed.");
+
+            var emailExists = await _repo.Query()
+                .AsNoTracking()
+                .AnyAsync(u => u.Email.ToLower() == email, ct);
+            if (emailExists)
+                throw new ConflictException("A user with this email already exists.");
+
+            var username = BuildUsernameFromEmail(email); 
+
+            Guid? keycloakId;
+            try
+            {
+                keycloakId = await _kc.CreateUserAsync(username, email, req.FullName, password, "guest", ct, false);
+            }
+            catch (ConflictException)
+            {
+                // Keycloak javlja da username ili email već postoji u IdP-u
+                throw;
+            }
+
+            if (keycloakId is null)
+                throw new ConflictException("Identity provider did not return a user id.");
+
             var entity = req.ToEntity();
+            entity.Email = email;
             entity.KeycloakId = keycloakId.Value;
+
             await _repo.AddAsync(entity, ct);
             await _repo.SaveChangesAsync(ct);
+
             return UserMappings.FromEntity(entity);
         }
 
@@ -328,6 +356,24 @@ namespace APLabApp.BLL.Users
             if (set.Contains("intern")) return "intern";
             if (set.Contains("guest")) return "guest";
             return "guest";
+        }
+
+        private static string BuildUsernameFromEmail(string email)
+        {
+            var sb = new StringBuilder(email.Length);
+            foreach (var ch in email.ToLowerInvariant())
+            {
+                if ((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '.' || ch == '_' || ch == '-')
+                    sb.Append(ch);
+                else if (ch == '@')
+                    sb.Append("__at__");
+                else
+                    sb.Append('_');
+            }
+            var candidate = sb.ToString().Trim('_', '.', '-');
+            if (string.IsNullOrWhiteSpace(candidate) || candidate.Length < 3)
+                candidate = "user_" + Guid.NewGuid().ToString("N")[..8];
+            return candidate;
         }
     }
 }

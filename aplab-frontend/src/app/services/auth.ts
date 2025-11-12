@@ -55,11 +55,28 @@ export class Auth {
   user() { return this._user(); }
 
   register(data: RegisterRequest): Observable<any> {
-    return this.http.post(`${this.api}/register`, data);
+    const payload: RegisterRequest = {
+      fullName: (data.fullName || '').trim(),
+      email: (data.email || '').trim().toLowerCase(),
+      password: data.password || ''
+    };
+    return this.http.post(`${this.api}/register`, payload).pipe(
+      catchError((err: HttpErrorResponse) => {
+        const detail = (err?.error && typeof err.error === 'object') ? (err.error.detail || err.error.message) : null;
+        const str = typeof err?.error === 'string' ? err.error : null;
+        const msg = detail || str || (err.status === 409 ? 'A user with this email already exists.' : err.status === 400 ? 'Invalid input.' : `Request failed (${err.status})`);
+        return throwError(() => new Error(msg));
+      })
+    );
   }
 
   login(data: LoginRequest): Observable<TokenResponse> {
-    return this.http.post<any>(`${this.api}/login`, data).pipe(
+    const raw = (data.usernameOrEmail || '').trim();
+    const payload: LoginRequest = {
+      usernameOrEmail: raw.includes('@') ? raw.toLowerCase() : raw,
+      password: (data.password || '').trim()
+    };
+    return this.http.post<any>(`${this.api}/login`, payload).pipe(
       map(res => {
         if (res && typeof res === 'object' && 'access_token' in res) return res as TokenResponse;
         if (res?.token && typeof res.token === 'object') return res.token as TokenResponse;
@@ -76,28 +93,19 @@ export class Auth {
       }),
       tap(() => this.sync$().subscribe()),
       catchError((err: HttpErrorResponse) => {
-        if (err.status === 428) {
-          const raw = err.error;
-          const url = raw?.changePasswordUrl || raw?.authUrl || raw?.AuthUrl || '';
-          const message = raw?.message || 'You must change your password before the first login.';
-          return throwError(() => ({ changeRequired: true, url, message }));
-        }
-        if (err.status === 400) {
-          const raw = typeof err.error === 'string' ? err.error : JSON.stringify(err.error || {});
-          const low = (raw || '').toLowerCase();
-          if (low.includes('account is not fully set up') || low.includes('update_password') || low.includes('resolve_required_actions')) {
-            return this.http.get<{ url: string }>(`${this.api}/first-login-url`).pipe(
-              switchMap(r => throwError(() => ({
-                changeRequired: true,
-                url: (r as any)?.url ?? '',
-                message: 'You must change your password before the first login.'
-              })))
-            );
-          }
-        }
-        const msg = typeof err.error === 'string' && err.error ? err.error : err.error?.message ?? `Request failed (${err.status})`;
-        return throwError(() => new Error(msg));
-      })
+  if (err.status === 428) {
+    const raw = err.error || {};
+    const url = raw.changePasswordUrl || raw.authUrl || raw.AuthUrl || '';
+    const message = raw.message || 'You must change your password before the first login.';
+    return throwError(() => ({ changeRequired: true, url, message }));
+  }
+
+  const detail = (err?.error && typeof err.error === 'object') ? (err.error.detail || err.error.message) : null;
+  const str = typeof err?.error === 'string' ? err.error : null;
+  const msg = detail || str || `Request failed (${err.status})`;
+  return throwError(() => new Error(msg));
+})
+
     );
   }
 

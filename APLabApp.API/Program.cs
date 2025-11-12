@@ -1,3 +1,5 @@
+using APLabApp.API;
+using APLabApp.API.Infrastructure;
 using APLabApp.BLL.Auth;
 using APLabApp.BLL.Seasons;
 using APLabApp.BLL.Users;
@@ -43,6 +45,8 @@ builder.Services.AddScoped<ISeasonRepository, SeasonRepository>();
 builder.Services.AddScoped<ISeasonService, SeasonService>();
 
 builder.Services.AddControllers();
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -141,6 +145,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseExceptionHandler();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();

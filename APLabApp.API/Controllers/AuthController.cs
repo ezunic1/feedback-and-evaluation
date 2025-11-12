@@ -1,14 +1,29 @@
 ﻿using APLabApp.BLL.Auth;
+using APLabApp.BLL.Errors;
 using APLabApp.BLL.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System;
+using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
-using System;
+using ValidationException = APLabApp.BLL.Errors.ValidationException;
 
 namespace APLabApp.Api.Controllers
 {
+    public record RegisterRequest(
+        [Required, MinLength(2)] string FullName,
+        [Required, EmailAddress] string Email,
+        [Required] string Password
+    );
+    public record LoginRequest(
+        [Required] string UsernameOrEmail,
+        [Required] string Password,
+        string? RedirectUri
+    );
+
+
     [ApiController]
     [AllowAnonymous]
     [Route("api/[controller]")]
@@ -39,7 +54,59 @@ namespace APLabApp.Api.Controllers
             return CreatedAtAction(nameof(Register), new { id = user.Id }, user);
         }
 
+
         [HttpPost("login")]
+        public async Task<ActionResult> Login([FromBody] LoginRequest req, CancellationToken ct)
+        {
+            var raw = req.UsernameOrEmail?.Trim() ?? "";
+            if (string.IsNullOrWhiteSpace(raw))
+                throw new ValidationException("Username or email is required.");
+
+            string identifier = raw;
+            if (raw.Contains('@'))
+            {
+                var emailAttr = new EmailAddressAttribute();
+                if (!emailAttr.IsValid(raw))
+                    throw new ValidationException("Enter a valid email address.");
+                identifier = raw.ToLowerInvariant();
+            }
+
+            var password = req.Password?.Trim() ?? "";
+            if (string.IsNullOrWhiteSpace(password))
+                throw new ValidationException("Password is required.");
+
+            try
+            {
+                var token = await _kc.PasswordTokenAsync(identifier, password, ct);
+                return Ok(token);
+            }
+            catch (PasswordChangeRequiredException)
+            {
+                var url = _kc.BuildBrowserAuthUrl(req.RedirectUri);
+                return StatusCode(428, new
+                {
+                    changePasswordUrl = url,
+                    message = "You must change your password before the first login."
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                var msg = ex.Message ?? string.Empty;
+                var low = msg.ToLowerInvariant();
+
+                if (low.Contains("invalid_grant") && low.Contains("invalid user credentials"))
+                    throw new ValidationException("Wrong email or password.");
+
+                if (low.Contains("user not found"))
+                    throw new ValidationException("User does not exist.");
+
+                throw new InvalidOperationException("Login failed.");
+            }
+        }
+
+
+        //bez validacije neka stoji za test
+        /*[HttpPost("login")]
         public async Task<ActionResult> Login([FromBody] LoginRequest req, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(req.UsernameOrEmail) || string.IsNullOrWhiteSpace(req.Password))
@@ -74,7 +141,7 @@ namespace APLabApp.Api.Controllers
                 }
                 return BadRequest(ex.Message);
             }
-        }
+        }*/
 
         [HttpGet("first-login-url")]
         public ActionResult<BrowserUrlResponse> FirstLoginUrl([FromQuery] string? redirectUri = null)
@@ -83,7 +150,7 @@ namespace APLabApp.Api.Controllers
             return Ok(new BrowserUrlResponse(url));
         }
 
-        [Authorize]
+       // [Authorize]
         [HttpPost("sync")]
         public async Task<ActionResult<UserDto>> Sync(CancellationToken ct)
         {
@@ -99,7 +166,7 @@ namespace APLabApp.Api.Controllers
         }
     }
 
-    public record RegisterRequest(string FullName, string Email, string Password);
-    public record LoginRequest(string UsernameOrEmail, string Password, string? RedirectUri);
+    //public record RegisterRequest(string FullName, string Email, string Password);
+    //public record LoginRequest(string UsernameOrEmail, string Password, string? RedirectUri);
     public record BrowserUrlResponse(string Url);
 }

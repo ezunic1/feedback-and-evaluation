@@ -1,27 +1,48 @@
 <div class="login-container">
   <div class="login-card">
     <a routerLink="/" class="back-link">← Back to home page</a>
-    <h2>Welcome Back</h2>
 
-    <form (ngSubmit)="onSubmit()" #f="ngForm" novalidate>
+    <h2>Welcome Back</h2>
+    <p class="subtitle">Sign in to your AP Lab account</p>
+
+    <form (ngSubmit)="onSubmit(f)" #f="ngForm" novalidate>
       <div class="form-group">
         <label>Email or Username</label>
-        <input type="text" [(ngModel)]="model.usernameOrEmail" name="usernameOrEmail" required />
+        <input
+          type="text"
+          name="usernameOrEmail"
+          [(ngModel)]="model.usernameOrEmail"
+          #username="ngModel"
+          required
+        />
+        <div class="field-error" *ngIf="username.invalid && (username.touched || f.submitted)">
+          * Email/username is required.
+        </div>
       </div>
 
       <div class="form-group">
         <label>Password</label>
-        <input type="password" [(ngModel)]="model.password" name="password" required />
+        <input
+          type="password"
+          name="password"
+          [(ngModel)]="model.password"
+          #password="ngModel"
+          required
+        />
+        <div class="field-error" *ngIf="password.invalid && (password.touched || f.submitted)">
+          * Password is required.
+        </div>
       </div>
 
-      <button type="submit" class="login-btn" [disabled]="loading || !f.form.valid">
-  <ui-spinner *ngIf="loading" [size]="14" class="btn-spinner"></ui-spinner>
-  {{ loading ? 'Logging in...' : 'Login' }}
-</button>
-
+      <div class="form-group">
+        <button type="submit" class="login-btn" [disabled]="loading">
+          <ui-spinner *ngIf="loading" [size]="14" class="btn-spinner"></ui-spinner>
+          {{ loading ? 'Logging in...' : 'Login' }}
+        </button>
+      </div>
     </form>
 
-    <p *ngIf="message && !changeRequired" class="message">{{ message }}</p>
+    <p *ngIf="message && !changeRequired" class="message" [class.error]="isError">{{ message }}</p>
 
     <div *ngIf="changeRequired" class="form-group" style="text-align:center; margin-top: 12px;">
       <p class="message">{{ changeMsg }}</p>

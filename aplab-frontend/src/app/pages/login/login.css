@@ -119,3 +119,15 @@ input:focus {
 .btn-spinner { margin-right: 8px; }
 
 
+.field-error {
+  color: #b91c1c;
+  font-size: 0.875rem;
+  margin-top: 6px;
+}
+
+.message {
+  font-size: 15px;
+  font-weight: bold;
+  color: #c1d72d;
+}
+
