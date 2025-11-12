@@ -3,11 +3,12 @@ import { Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Auth, LoginRequest } from '../../services/auth';
+import { Spinner } from '../../shared/spinner/spinner';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [RouterLink, CommonModule, FormsModule],
+  imports: [RouterLink, CommonModule, FormsModule, Spinner],
   templateUrl: './login.html',
   styleUrl: './login.css'
 })

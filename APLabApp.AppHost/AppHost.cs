@@ -20,7 +20,7 @@ var postgres = builder.AddPostgres("postgres", username, password)
 var apLabDb = postgres.AddDatabase("APDB");
 
 var keycloak = builder.AddKeycloak("keycloak", 8080)
-    .WithDataVolume("aplab-keycloak-data")
+    .WithDataVolume("aplab-keycloak-data") // fiksni container
     .WithEndpoint("http", e =>
     {
         e.Port = 8080;

@@ -15,8 +15,10 @@
       </div>
 
       <button type="submit" class="login-btn" [disabled]="loading || !f.form.valid">
-        {{ loading ? 'Logging in...' : 'Login' }}
-      </button>
+  <ui-spinner *ngIf="loading" [size]="14" class="btn-spinner"></ui-spinner>
+  {{ loading ? 'Logging in...' : 'Login' }}
+</button>
+
     </form>
 
     <p *ngIf="message && !changeRequired" class="message">{{ message }}</p>

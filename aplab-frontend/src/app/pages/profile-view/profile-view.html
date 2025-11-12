@@ -2,7 +2,7 @@
   <a routerLink="/dashboard" class="back">← Back to dashboard</a>
   <h2 class="title">{{ user?.fullName || 'User Profile' }}</h2>
 
-  <section class="card" *ngIf="!loading && user; else loadingTpl">
+  <section class="card" *ngIf="!loading; else loadingTpl">
     <div class="header">
       <span class="avatar">{{ (user?.fullName || user?.email || 'U').substring(0,1) | uppercase }}</span>
       <div class="id-block">
@@ -75,6 +75,7 @@
         </ng-template>
       </div>
     </div>
+
     <div class="actions" *ngIf="isAdmin">
       <button class="btn-ghost" (click)="deleteUser()" [disabled]="deleting">Delete user</button>
       <button class="btn-ghost" (click)="cancel()" *ngIf="isEditing">Cancel</button>
@@ -86,6 +87,13 @@
   </section>
 
   <ng-template #loadingTpl>
-    <div class="skeleton"></div>
+    <section class="card loading-card">
+      <ui-spinner class="grid-spinner" [size]="32" [thickness]="4"></ui-spinner>
+      <div class="skeleton header-skel"></div>
+      <div class="divider"></div>
+      <div class="skeleton row"></div>
+      <div class="skeleton row"></div>
+      <div class="skeleton row wide"></div>
+    </section>
   </ng-template>
 </div>

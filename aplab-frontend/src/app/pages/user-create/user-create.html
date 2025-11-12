@@ -38,11 +38,15 @@
         <input type="password" [(ngModel)]="model.confirmPassword" name="confirmPassword" autocomplete="new-password" required />
       </div>
 
-      <label class="check-row">
-        <input type="checkbox" [(ngModel)]="model.forcePasswordChange" name="forcePasswordChange" />
-        <span>Require password change on first login</span>
-      </label>
-
+      <div class="form-check">
+        <input
+          id="forceChange"
+          type="checkbox"
+          [(ngModel)]="model.forcePasswordChange"
+          name="forcePasswordChange"
+        />
+        <label for="forceChange">Require password change on first login</label>
+     </div>
       <button type="submit" class="create-btn" [disabled]="loading || !f.form.valid">
         {{ loading ? 'Creating...' : 'Create User' }}
       </button>

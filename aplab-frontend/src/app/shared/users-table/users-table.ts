@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Users, Role, PagedResult, UserListItem } from '../../services/users';
 import { Seasons, SeasonDto } from '../../services/seasons';
+import { Spinner } from '../../shared/spinner/spinner';
 
 @Component({
   selector: 'app-users-table',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, Spinner],
   templateUrl: './users-table.html',
   styleUrl: './users-table.css'
 })

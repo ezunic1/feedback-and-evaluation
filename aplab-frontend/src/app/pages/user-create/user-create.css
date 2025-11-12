@@ -105,10 +105,37 @@ input:focus, select:focus, textarea:focus { border-color: #c1d72d; }
 }
 .back-link:hover { color: #c1d72d; }
 
-/* ako je ekran niži, dodatno komprimiraj */
+
 @media (max-height: 800px) {
   .create-card { padding: 1.25rem 1.5rem; }
   .subtitle { margin-bottom: 0.75rem; }
   .form-group { margin-bottom: 0.6rem; }
   textarea { min-height: 64px; }
+}
+
+.form-check {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: 320px;
+  margin: 0.35rem auto 0.8rem;
+  text-align: left;
+  margin-top: 15px;
+}
+
+.form-check input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex: 0 0 auto;
+  accent-color: #c1d72d; 
+}
+
+.form-check label {
+  width: auto;
+  max-width: none;
+  margin: 0;
+  font-weight: 600;
+  color: #2f2f2f;
+  line-height: 1.3;
 }

@@ -6,13 +6,14 @@ import { PLATFORM_ID } from '@angular/core';
 import { Auth } from '../../services/auth';
 import { ProfileService, MeResponse } from '../../services/profile';
 import { Navbar } from '../../shared/navbar/navbar';
+import { Spinner } from '../../shared/spinner/spinner';
 
 type Role = 'guest' | 'intern' | 'mentor' | 'admin' | 'unknown';
 
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, Navbar],
+  imports: [CommonModule, FormsModule, RouterLink, Navbar, Spinner],
   templateUrl: './profile.html',
   styleUrls: ['./profile.css']
 })

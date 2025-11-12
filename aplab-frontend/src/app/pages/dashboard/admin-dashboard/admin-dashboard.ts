@@ -13,7 +13,7 @@ import { Auth } from '../../../services/auth';
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, Navbar, SeasonList, UsersTable],
   templateUrl: './admin-dashboard.html',
-  styleUrl: './admin-dashboard.css'
+  styleUrls: ['./admin-dashboard.css']
 })
 export class AdminDashboard implements OnInit {
   private router = inject(Router);
@@ -21,11 +21,10 @@ export class AdminDashboard implements OnInit {
   private seasonsApi = inject(Seasons);
 
   loadingSeasons = true;
-
   seasons: SeasonDto[] = [];
   filteredSeasons: SeasonDto[] = [];
-
   qSeason = '';
+  activeTab: 'seasons' | 'users' = 'seasons';
 
   ngOnInit(): void {
     if (!this.auth.isLoggedIn()) { this.router.navigate(['/login']); return; }

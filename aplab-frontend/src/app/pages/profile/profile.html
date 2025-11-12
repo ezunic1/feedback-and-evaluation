@@ -3,7 +3,7 @@
 <div class="profile-wrap">
   <h2 class="title">My Profile</h2>
 
-  <section class="profile-card" [class.is-editing]="isEditing" *ngIf="!loading; else skel">
+  <section class="profile-card" [class.is-editing]="isEditing" *ngIf="!loading; else loadingTpl">
     <div class="header">
       <div class="avatar">
         {{ (displayName ?? email ?? 'U').substring(0,1) | uppercase }}
@@ -58,8 +58,9 @@
     </div>
   </section>
 
-  <ng-template #skel>
-    <section class="profile-card">
+  <ng-template #loadingTpl>
+    <section class="profile-card loading-card">
+      <ui-spinner class="grid-spinner" [size]="32" [thickness]="4"></ui-spinner>
       <div class="skeleton header-skel"></div>
       <div class="divider"></div>
       <div class="skeleton row"></div>

@@ -31,6 +31,11 @@
   padding: 24px;
 }
 
+.loading-card {
+  position: relative;
+  min-height: 220px;
+}
+
 .header {
   display: flex;
   align-items: center;
@@ -86,6 +91,16 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 14px 24px;
+  position: relative;
+  min-height: 180px;
+}
+
+.grid-spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%,-50%);
+  pointer-events: none;
 }
 
 .info-item {

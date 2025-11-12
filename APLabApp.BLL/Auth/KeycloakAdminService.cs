@@ -192,7 +192,7 @@ namespace APLabApp.BLL.Auth
             if (string.IsNullOrWhiteSpace(targetId)) return;
             foreach (var g in current)
             {
-                if (!string.Equals(g.Name, groupName, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(g.Id))
+                if (!string.IsNullOrWhiteSpace(g.Id) && !string.Equals(g.Name, groupName, StringComparison.OrdinalIgnoreCase))
                     await _http.DeleteAsync($"{_baseUrl}/admin/realms/{_realm}/users/{keycloakUserId}/groups/{g.Id}", ct);
             }
             var hasTarget = current.Any(c => string.Equals(c.Name, groupName, StringComparison.OrdinalIgnoreCase));

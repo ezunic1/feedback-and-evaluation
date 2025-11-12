@@ -1,4 +1,6 @@
 <div class="users-card">
+  <ui-spinner *ngIf="loading" class="section-spinner" [size]="25" [thickness]="2"></ui-spinner>
+
   <div class="filters" *ngIf="showFilters">
     <select class="input" [(ngModel)]="role" (ngModelChange)="onRoleChanged()">
       <option value="all">All roles</option>
@@ -7,8 +9,6 @@
       <option value="intern">Intern</option>
       <option value="guest">Guest</option>
     </select>
-
-    <!-- Prikaži čim je role='intern'; unutra rješavamo loading/prazno -->
     <select class="input" *ngIf="role==='intern'" [(ngModel)]="selectedSeason" (ngModelChange)="onSeasonChanged()">
       <option [ngValue]="'all'">All seasons</option>
       <option *ngIf="seasonsLoading" disabled>Loading…</option>

@@ -5,11 +5,12 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Users, UserDto, UpdateUserRequest, Role } from '../../services/users';
 import { Seasons, SeasonDto } from '../../services/seasons';
 import { Auth } from '../../services/auth';
+import { Spinner } from '../../shared/spinner/spinner';
 
 @Component({
   selector: 'app-profile-view',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, Spinner],
   templateUrl: './profile-view.html',
   styleUrls: ['./profile-view.css']
 })
@@ -39,9 +40,7 @@ export class ProfileView implements OnInit {
   seasonsLoading = false;
 
   ngOnInit(): void {
-    // utvrdi rolu
     this.isAdmin = (this.auth.roles?.() || []).map(r => r.toLowerCase()).includes('admin');
-
     this.id = String(this.route.snapshot.paramMap.get('id') || '');
     if (!this.id) {
       this.router.navigate(['/users']);

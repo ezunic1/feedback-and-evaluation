@@ -1,15 +1,16 @@
 import { Component } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Auth, RegisterRequest } from '../../services/auth';
+import { Spinner } from '../../shared/spinner/spinner';
 
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [RouterLink, CommonModule, FormsModule],
+  imports: [RouterLink, CommonModule, FormsModule, Spinner],
   templateUrl: './register.html',
-  styleUrl: './register.css'
+  styleUrls: ['./register.css']
 })
 export class Register {
   model: RegisterRequest = { fullName: '', email: '', password: '' };
@@ -17,36 +18,33 @@ export class Register {
   message = '';
   loading = false;
 
-  constructor(private auth: Auth) {}
+  constructor(private auth: Auth, private router: Router) {}
 
   onSubmit() {
-  console.log('[Register] submit clicked');
-  if (this.loading) return;
+    if (this.loading) return;
 
-  if (!this.model.fullName || !this.model.email || !this.model.password || !this.confirmPassword) {
-    this.message = 'Please fill in all fields.';
-    return;
-  }
-  if (this.model.password !== this.confirmPassword) {
-    this.message = 'Passwords do not match.';
-    return;
-  }
-
-  this.loading = true;
-  this.message = '';
-
-  this.auth.register(this.model).subscribe({
-    next: (_res: any) => {
-      console.log('[Register] success', _res);
-      this.message = 'Registration successful! You can now log in.';
-      this.loading = false;
-    },
-    error: (err: any) => {
-      console.error('[Register] error', err);
-      this.message = err?.message || 'Registration failed.';
-      this.loading = false;
+    if (!this.model.fullName || !this.model.email || !this.model.password || !this.confirmPassword) {
+      this.message = 'Please fill in all fields.';
+      return;
     }
-  });
-}
+    if (this.model.password !== this.confirmPassword) {
+      this.message = 'Passwords do not match.';
+      return;
+    }
 
+    this.loading = true;
+    this.message = '';
+
+    this.auth.register(this.model).subscribe({
+      next: (_res: any) => {
+        this.loading = false;
+        this.message = 'Registration successful! Redirecting to login...';
+        setTimeout(() => this.router.navigate(['/login']), 1200);
+      },
+      error: (err: any) => {
+        this.loading = false;
+        this.message = err?.message || 'Registration failed.';
+      }
+    });
+  }
 }

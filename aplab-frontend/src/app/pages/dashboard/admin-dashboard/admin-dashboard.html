@@ -4,17 +4,37 @@
     <h2 class="title">Admin Dashboard</h2>
   </div>
 
-  <section class="card">
+  <div class="tabs-grid" role="tablist" aria-label="Sections">
+    <button
+      class="tablink"
+      [class.active]="activeTab==='seasons'"
+      role="tab"
+      [attr.aria-selected]="activeTab==='seasons'"
+      (click)="activeTab='seasons'">
+      Seasons
+    </button>
+
+    <button
+      class="tablink"
+      [class.active]="activeTab==='users'"
+      role="tab"
+      [attr.aria-selected]="activeTab==='users'"
+      (click)="activeTab='users'">
+      Users
+    </button>
+  </div>
+
+  <section class="card" *ngIf="activeTab==='seasons'" role="tabpanel">
     <div class="section-head">
       <h3 class="card-title">Seasons</h3>
-      <button class="btn accent" (click)="addSeason()">+ Season</button>
+      <button class="btn accent" type="button" (click)="addSeason()">+ Season</button>
     </div>
 
     <div class="filters">
       <div class="search">
-        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke-width="2">
-          <circle cx="11" cy="11" r="7" stroke="currentColor"></circle>
-          <line x1="16.65" y1="16.65" x2="21" y2="21" stroke="currentColor"></line>
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="7"></circle>
+          <line x1="16.65" y1="16.65" x2="21" y2="21"></line>
         </svg>
         <input
           class="search-input"
@@ -22,15 +42,13 @@
           placeholder="Search seasons by name"
           [(ngModel)]="qSeason"
           (ngModelChange)="applySeasonFilters()"
-          aria-label="Search seasons by name"
-        >
+          aria-label="Search seasons by name">
         <button
           class="clear"
           *ngIf="qSeason"
           (click)="qSeason=''; applySeasonFilters()"
           aria-label="Clear search"
-          type="button"
-        >×</button>
+          type="button"></button>
       </div>
     </div>
 
@@ -38,15 +56,14 @@
     <app-season-list
       *ngIf="!loadingSeasons"
       [seasons]="filteredSeasons"
-      (open)="openSeason($event)"
-    >
+      (open)="openSeason($event)">
     </app-season-list>
   </section>
 
-  <section class="card">
+  <section class="card" *ngIf="activeTab==='users'" role="tabpanel">
     <div class="section-head">
       <h3 class="card-title">Users</h3>
-      <button class="btn accent" (click)="addUser()">+ User</button>
+      <button class="btn accent" type="button" (click)="addUser()">+ User</button>
     </div>
 
     <app-users-table (open)="openUser($event)"></app-users-table>

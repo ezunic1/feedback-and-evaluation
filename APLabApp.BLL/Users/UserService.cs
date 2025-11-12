@@ -34,7 +34,6 @@ namespace APLabApp.BLL.Users
             var size = Math.Clamp(q.PageSize, 1, 100);
 
             var query = _repo.Query().AsNoTracking();
-
             if (!string.IsNullOrWhiteSpace(q.Q))
             {
                 var term = q.Q.Trim().ToLower();
@@ -42,15 +41,12 @@ namespace APLabApp.BLL.Users
                     (u.FullName ?? "").ToLower().Contains(term) ||
                     u.Email.ToLower().Contains(term));
             }
-
             if (q.From.HasValue) query = query.Where(u => u.CreatedAtUtc >= q.From!.Value);
             if (q.To.HasValue) query = query.Where(u => u.CreatedAtUtc <= q.To!.Value);
-
             if (q.SeasonId.HasValue && string.Equals(q.Role, "intern", StringComparison.OrdinalIgnoreCase))
             {
                 query = query.Where(u => u.SeasonId == q.SeasonId.Value);
             }
-
             query = (q.SortBy?.ToLower(), q.SortDir?.ToLower()) switch
             {
                 ("name", "asc") => query.OrderBy(u => u.FullName).ThenBy(u => u.Id),

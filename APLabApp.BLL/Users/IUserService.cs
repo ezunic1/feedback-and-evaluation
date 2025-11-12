@@ -8,7 +8,6 @@ namespace APLabApp.BLL.Users
     public interface IUserService
     {
         Task<PagedResult<UserListItemDto>> GetPagedAsync(UsersQuery q, CancellationToken ct);
-
         Task<IReadOnlyList<UserDto>> GetAllAsync(CancellationToken ct);
         Task<UserDto?> GetByIdAsync(Guid id, CancellationToken ct);
         Task<UserDto> CreateAsync(CreateUserRequest req, CancellationToken ct);
