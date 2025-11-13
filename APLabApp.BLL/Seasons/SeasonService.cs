@@ -1,4 +1,5 @@
 ﻿using APLabApp.BLL.Auth;
+using APLabApp.BLL.Errors;
 using APLabApp.BLL.Users;
 using APLabApp.Dal.Entities;
 using APLabApp.Dal.Repositories;
@@ -32,20 +33,46 @@ namespace APLabApp.BLL.Seasons
 
         public async Task<SeasonDto> CreateAsync(CreateSeasonRequest req, CancellationToken ct)
         {
-            if (req.StartDate >= req.EndDate) throw new ArgumentException("StartDate must be before EndDate.");
+            if (string.IsNullOrWhiteSpace(req.Name))
+                throw new ValidationException("Season name is required.");
+
+            if (req.StartDate == default || req.EndDate == default)
+                throw new ValidationException("Start and end date are required.");
+
+            if (req.StartDate >= req.EndDate)
+                throw new ValidationException("Start date must be before end date.");
+
+            // provjera preklapanja sa postojećim sezonama
+            var allSeasons = await _seasons.GetAllAsync(ct); 
+
+            var overlapping = allSeasons
+                .FirstOrDefault(s =>
+                    s.StartDate <= req.EndDate &&
+                    s.EndDate >= req.StartDate);
+
+            if (overlapping is not null)
+            {
+                throw new ConflictException(
+                    $"Season '{overlapping.Name}' ({overlapping.StartDate:yyyy-MM-dd} – {overlapping.EndDate:yyyy-MM-dd}) already occupies this period.");
+            }
 
             if (req.MentorId.HasValue)
             {
                 var mentor = await _users.GetByIdAsync(req.MentorId.Value, ct);
-                if (mentor is null) throw new InvalidOperationException("Mentor not found.");
-                if (mentor.KeycloakId == Guid.Empty) throw new InvalidOperationException("Mentor has no Keycloak link.");
+                if (mentor is null)
+                    throw new NotFoundException("Mentor not found.");
+
+                if (mentor.KeycloakId == Guid.Empty)
+                    throw new ValidationException("Mentor has no Keycloak link.");
+
                 var isMentor = await _kc.IsUserInGroupAsync(mentor.KeycloakId, "mentor", ct);
-                if (!isMentor) throw new InvalidOperationException("Selected user is not a mentor.");
+                if (!isMentor)
+                    throw new ValidationException("Selected user is not a mentor.");
             }
 
             var entity = new Season
             {
-                Name = req.Name,
+                Name = req.Name.Trim(),
                 StartDate = req.StartDate,
                 EndDate = req.EndDate,
                 MentorId = req.MentorId
@@ -55,7 +82,10 @@ namespace APLabApp.BLL.Seasons
             await _seasons.SaveChangesAsync(ct);
 
             var created = await _seasons.GetByIdAsync(entity.Id, ct, false);
-            return SeasonMappings.FromEntity(created!);
+            if (created is null)
+                throw new NotFoundException("Created season not found.");
+
+            return SeasonMappings.FromEntity(created);
         }
 
         public async Task<SeasonDto?> UpdateAsync(int id, UpdateSeasonRequest req, CancellationToken ct)
