@@ -97,3 +97,15 @@
     </section>
   </ng-template>
 </div>
+
+
+<app-confirm-delete
+  *ngIf="showDeleteConfirm"
+  [title]="'Delete user'"
+  [message]="'Delete this user? This cannot be undone.'"
+  [confirmLabel]="'Delete'"
+  [cancelLabel]="'Cancel'"
+  [loading]="deleting"
+  (confirm)="onConfirmDeleteUser()"
+  (cancel)="onCancelDeleteUser()">
+</app-confirm-delete>

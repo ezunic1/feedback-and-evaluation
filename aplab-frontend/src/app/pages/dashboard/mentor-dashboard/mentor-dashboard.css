@@ -1,7 +1,11 @@
+:host { --brand1: #c1d72d; }
+
 :root {
-  --text: #2f2f2f;
-  --shadow: 0 8px 40px rgba(0,0,0,.08);
   --brand1: #c1d72d;
+  --text: #2f2f2f;
+  --muted: #6b6b6b;
+  --stroke: #e6eaec;
+  --shadow: 0 8px 40px rgba(0,0,0,.08);
 }
 
 .wrap {
@@ -17,6 +21,7 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 18px;
+  gap: 12px;
 }
 
 .title {
@@ -24,6 +29,54 @@
   font-size: 2.2rem;
   font-weight: 800;
   letter-spacing: .2px;
+}
+
+.tabs-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 30%;
+  min-width: 280px;
+  margin: 6px 0 14px;
+}
+
+.tabs-grid::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: #dcdfe3;
+  z-index: 0;
+}
+
+.tablink {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 12px 8px;
+  font-weight: 800;
+  color: var(--text);
+  cursor: pointer;
+  text-align: center;
+  position: relative;
+}
+
+.tablink::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: transparent;
+  z-index: 1;
+  transition: background-color .15s ease;
+}
+
+.tablink.active::after {
+  background: var(--brand1, #c1d72d);
 }
 
 .card {
@@ -34,14 +87,24 @@
   margin-bottom: 22px;
 }
 
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
 .card-title {
-  margin: 4px 0 10px 0;
+  margin: 4px 0 0 0;
   font-size: 1.25rem;
   font-weight: 800;
 }
 
 .muted {
-  color: #6b6b6b;
+  margin: 4px 0 0 0;
+  font-size: 0.9rem;
+  color: var(--muted);
 }
 
 .skeleton {
@@ -52,16 +115,6 @@
 }
 
 @keyframes shimmer {
-  0%   { background-position: -200px 0; }
+  0% { background-position: -200px 0; }
   100% { background-position: calc(200px + 100%) 0; }
-}
-
-:host ::ng-deep app-ongoing-season .accent {
-  background: var(--brand1) !important;
-  background-image: none !important;
-}
-
-:host ::ng-deep app-ongoing-season .card .accent {
-  background: var(--brand1) !important;
-  background-image: none !important;
 }

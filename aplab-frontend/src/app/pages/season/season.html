@@ -135,7 +135,6 @@
         </div>
       </div>
 
-      
       <div class="candidate-list" *ngIf="addTab==='guests'">
         <div class="row" *ngFor="let u of filteredCandidates(guestCandidates)">
           <div class="who">
@@ -150,3 +149,14 @@
     </div>
   </div>
 </div>
+
+<app-confirm-delete
+  *ngIf="showDeleteConfirm"
+  [title]="'Delete season'"
+  [message]="'Delete this season? This cannot be undone.'"
+  [confirmLabel]="'Delete'"
+  [cancelLabel]="'Cancel'"
+  [loading]="deleting"
+  (confirm)="onConfirmDeleteSeason()"
+  (cancel)="onCancelDeleteSeason()">
+</app-confirm-delete>

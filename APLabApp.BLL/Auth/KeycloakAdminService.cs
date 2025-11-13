@@ -489,6 +489,21 @@ namespace APLabApp.BLL.Auth
             }
             return false;
         }
+
+        public async Task<bool> DeleteUserAsync(Guid keycloakUserId, CancellationToken ct)
+        {
+            await EnsureAdminAuth(ct);
+            var url = $"{_baseUrl}/admin/realms/{_realm}/users/{keycloakUserId}";
+            var resp = await _http.DeleteAsync(url, ct);
+
+            if (resp.IsSuccessStatusCode)
+                return true;
+
+            if ((int)resp.StatusCode == 404)
+                return true;
+
+            return false;
+        }
     }
 
     public sealed class TokenResponse

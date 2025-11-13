@@ -1,0 +1,15 @@
+<div class="cd-backdrop">
+  <div class="cd-modal">
+    <h3 class="cd-title">{{ title }}</h3>
+    <p class="cd-message">{{ message }}</p>
+
+    <div class="cd-actions">
+      <button class="btn ghost" type="button" (click)="onCancel()">
+        {{ cancelLabel }}
+      </button>
+      <button class="btn danger" type="button" (click)="onConfirm()" [disabled]="loading">
+        {{ loading ? 'Deleting…' : confirmLabel }}
+      </button>
+    </div>
+  </div>
+</div>

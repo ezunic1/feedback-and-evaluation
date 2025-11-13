@@ -6,11 +6,12 @@ import { Users, UserDto, UpdateUserRequest, Role } from '../../services/users';
 import { Seasons, SeasonDto } from '../../services/seasons';
 import { Auth } from '../../services/auth';
 import { Spinner } from '../../shared/spinner/spinner';
+import { ConfirmDelete } from '../../shared/confirm-delete/confirm-delete';
 
 @Component({
   selector: 'app-profile-view',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, Spinner],
+  imports: [CommonModule, FormsModule, RouterLink, Spinner, ConfirmDelete],
   templateUrl: './profile-view.html',
   styleUrls: ['./profile-view.css']
 })
@@ -38,6 +39,8 @@ export class ProfileView implements OnInit {
 
   seasons: SeasonDto[] = [];
   seasonsLoading = false;
+
+  showDeleteConfirm = false;
 
   ngOnInit(): void {
     this.isAdmin = (this.auth.roles?.() || []).map(r => r.toLowerCase()).includes('admin');
@@ -132,15 +135,26 @@ export class ProfileView implements OnInit {
 
   deleteUser(): void {
     if (!this.user || this.deleting || !this.isAdmin) return;
-    const ok = confirm('Delete this user? This cannot be undone.');
-    if (!ok) return;
+    this.showDeleteConfirm = true;
+  }
+
+  onCancelDeleteUser(): void {
+    this.showDeleteConfirm = false;
+  }
+
+  onConfirmDeleteUser(): void {
+    if (!this.user || this.deleting || !this.isAdmin) return;
     this.deleting = true;
     this.api.delete(this.user.id).subscribe({
       next: () => {
         this.deleting = false;
+        this.showDeleteConfirm = false;
         this.router.navigate(['/users']);
       },
-      error: () => { this.deleting = false; }
+      error: () => {
+        this.deleting = false;
+        this.showDeleteConfirm = false;
+      }
     });
   }
 }

@@ -14,6 +14,8 @@ namespace APLabApp.BLL.Auth
         Task<bool> ResetPasswordAsync(Guid keycloakUserId, string newPassword, CancellationToken ct);
         Task<bool> IsUserInGroupAsync(Guid keycloakUserId, string groupName, CancellationToken ct);
         Task<HashSet<Guid>> GetUserIdsInRealmRoleAsync(string role, CancellationToken ct);
+        Task<bool> DeleteUserAsync(Guid keycloakUserId, CancellationToken ct);
+
         Task<HashSet<Guid>> GetUserIdsInGroupAsync(string groupName, CancellationToken ct);
         Task<Dictionary<Guid, string[]>> GetRealmRolesBulkAsync(IEnumerable<Guid> keycloakUserIds, CancellationToken ct);
         Task<Dictionary<Guid, string[]>> GetGroupsBulkAsync(IEnumerable<Guid> keycloakUserIds, CancellationToken ct);

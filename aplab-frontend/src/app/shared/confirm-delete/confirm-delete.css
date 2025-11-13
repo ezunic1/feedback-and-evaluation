@@ -1,0 +1,77 @@
+.cd-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  backdrop-filter: blur(3px);
+}
+
+.cd-modal {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 20px 24px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  max-width: 420px;
+  width: 90%;
+  font-family: Segoe UI, Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.cd-title {
+  margin: 0 0 8px 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #2f2f2f;
+}
+
+.cd-message {
+  margin: 0 0 18px 0;
+  color: #4b4b4b;
+  font-size: 0.95rem;
+}
+
+.cd-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-weight: 700;
+  border: 1px solid #aeb9bf;
+  background: #fff;
+  color: #2f2f2f;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn:hover:not(:disabled) {
+  
+  transform: translateY(-2px);
+}
+
+.btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+  transform: none;
+}
+
+.btn.ghost {
+  background: #fff;
+  color: #2f2f2f;
+  border: 1px solid #aeb9bf;
+}
+
+.btn.danger {
+  background: #ea3d2f;
+  color: #fff;
+  border: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}

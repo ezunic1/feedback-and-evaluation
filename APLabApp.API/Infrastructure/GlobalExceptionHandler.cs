@@ -30,8 +30,6 @@ namespace APLabApp.API.Infrastructure
                 Type = $"https://httpstatuses.com/{status}"
             };
             pd.Extensions["traceId"] = Activity.Current?.Id ?? http.TraceIdentifier;
-
-            // FIX: ovaj API nema overload sa CancellationToken-om
             await _pds.WriteAsync(new() { HttpContext = http, ProblemDetails = pd });
 
             return true;

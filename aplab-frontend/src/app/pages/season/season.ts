@@ -7,11 +7,12 @@ import { Seasons, SeasonDto, UserDto as SeasonUserDto } from '../../services/sea
 import { Users, UserListItem, UpdateUserRequest, Role, UserDto as UsersUserDto } from '../../services/users';
 import { Auth } from '../../services/auth';
 import { forkJoin } from 'rxjs';
+import { ConfirmDelete } from '../../shared/confirm-delete/confirm-delete';
 
 @Component({
   selector: 'app-season',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, Navbar],
+  imports: [CommonModule, RouterLink, FormsModule, Navbar, ConfirmDelete],
   templateUrl: './season.html',
   styleUrl: './season.css'
 })
@@ -51,6 +52,7 @@ export class SeasonPage implements OnInit {
   addingUserId: string | null = null;
 
   deleting = false;
+  showDeleteConfirm = false;
 
   ngOnInit(): void {
     if (!this.auth.isLoggedIn()) { this.router.navigate(['/login']); return; }
@@ -171,12 +173,26 @@ export class SeasonPage implements OnInit {
 
   deleteSeason(): void {
     if (!this.season || !this.canDelete || this.deleting) return;
-    const ok = confirm('Delete this season? This cannot be undone.');
-    if (!ok) return;
+    this.showDeleteConfirm = true;
+  }
+
+  onCancelDeleteSeason(): void {
+    this.showDeleteConfirm = false;
+  }
+
+  onConfirmDeleteSeason(): void {
+    if (!this.season || !this.canDelete || this.deleting) return;
     this.deleting = true;
     this.seasonsApi.delete(this.season.id).subscribe({
-      next: () => { this.deleting = false; this.router.navigate(['/dashboard']); },
-      error: () => { this.deleting = false; }
+      next: () => {
+        this.deleting = false;
+        this.showDeleteConfirm = false;
+        this.router.navigate(['/dashboard']);
+      },
+      error: () => {
+        this.deleting = false;
+        this.showDeleteConfirm = false;
+      }
     });
   }
 

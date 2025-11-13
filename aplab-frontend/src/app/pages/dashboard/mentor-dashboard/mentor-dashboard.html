@@ -4,43 +4,79 @@
     <h2 class="title">Mentor Dashboard</h2>
   </div>
 
-  <ng-container *ngIf="!loading; else loadingTpl">
-    <ng-container *ngIf="ongoing; else noOngoingTpl">
-      <div class="card">
-        <h3 class="card-title">Ongoing season</h3>
-        <app-season-list
-          [seasons]="[ongoing!]"
-          (open)="openSeason($event)">
-        </app-season-list>
-      </div>
-    </ng-container>
-    <ng-template #noOngoingTpl>
-      <div class="card">
-        <h3 class="card-title">Ongoing season</h3>
-        <p class="muted">No ongoing season.</p>
-      </div>
-    </ng-template>
+  <div class="tabs-grid" role="tablist" aria-label="Sections">
+    <button
+      class="tablink"
+      [class.active]="activeTab==='mine'"
+      role="tab"
+      [attr.aria-selected]="activeTab==='mine'"
+      (click)="activeTab='mine'">
+      My seasons
+    </button>
 
-    <div class="card">
-      <h3 class="card-title">My previous seasons</h3>
-      <ng-container *ngIf="myPrevious?.length; else noPrevTpl">
+    <button
+      class="tablink"
+      [class.active]="activeTab==='others'"
+      role="tab"
+      [attr.aria-selected]="activeTab==='others'"
+      (click)="activeTab='others'">
+      Other seasons
+    </button>
+  </div>
+
+  <ng-container *ngIf="!loading; else loadingTpl">
+    <section *ngIf="activeTab==='mine'" role="tabpanel">
+      <div class="card">
+        <div class="section-head">
+          <h3 class="card-title">My current season</h3>
+        </div>
+
+        <ng-container *ngIf="ongoing; else noCurrentTpl">
+          <app-season-list
+            [seasons]="[ongoing!]"
+            (open)="openSeason($event)">
+          </app-season-list>
+        </ng-container>
+
+        <ng-template #noCurrentTpl>
+          <p class="muted">No current season.</p>
+        </ng-template>
+      </div>
+
+      <div class="card">
+        <div class="section-head">
+          <h3 class="card-title">My previous seasons</h3>
+        </div>
+
+        <ng-container *ngIf="myPrevious?.length; else noPrevTpl">
+          <app-season-list
+            [seasons]="myPrevious"
+            (open)="openSeason($event)">
+          </app-season-list>
+        </ng-container>
+
+        <ng-template #noPrevTpl>
+          <p class="muted">No previous seasons.</p>
+        </ng-template>
+      </div>
+    </section>
+
+    <section class="card" *ngIf="activeTab==='others'" role="tabpanel">
+      <div class="section-head">
+        <h3 class="card-title">Other seasons</h3>
+      </div>
+
+      <ng-container *ngIf="others?.length; else noOtherTpl">
         <app-season-list
-          [seasons]="myPrevious"
-          (open)="openSeason($event)">
+          [seasons]="others"
+          (open)="openOther($event)">
         </app-season-list>
       </ng-container>
-      <ng-template #noPrevTpl>
-        <p class="muted">No previous seasons.</p>
-      </ng-template>
-    </div>
 
-    <div class="card">
-      <h3 class="card-title">Other seasons</h3>
-      <app-season-list
-        [seasons]="others"
-        (open)="openOther($event)">
-      </app-season-list>
-    </div>
+      <ng-template #noOtherTpl>
+        <p class="muted">No other seasons.</p>
+      </ng-template>
+    </section>
   </ng-container>
 
   <ng-template #loadingTpl>

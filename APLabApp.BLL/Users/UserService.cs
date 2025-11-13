@@ -241,10 +241,21 @@ namespace APLabApp.BLL.Users
         {
             var e = await _repo.GetByIdAsync(id, ct);
             if (e is null) return false;
+
+            if (e.KeycloakId != Guid.Empty)
+            {
+                var kcDeleted = await _kc.DeleteUserAsync(e.KeycloakId, ct);
+                if (!kcDeleted)
+                {
+                    throw new InvalidOperationException("Failed to delete user in Keycloak.");
+                }
+            }
+
             await _repo.DeleteAsync(e, ct);
             await _repo.SaveChangesAsync(ct);
             return true;
         }
+
 
         public async Task<bool> ChangePasswordAsync(Guid id, string newPassword, string? currentPassword, CancellationToken ct)
         {
