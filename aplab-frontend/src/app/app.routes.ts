@@ -25,5 +25,7 @@ export const routes: Routes = [
 
   { path: 'seasons/view/:id', loadComponent: () => import('./shared/season-view/season-view').then(m => m.SeasonView) },
 
+  { path: 'all-feedbacks', loadComponent: () => import('./shared/all-feedbacks/all-feedbacks').then(m => m.AllFeedbacks) },
+
   { path: '**', redirectTo: 'dashboard/admin' }
 ];

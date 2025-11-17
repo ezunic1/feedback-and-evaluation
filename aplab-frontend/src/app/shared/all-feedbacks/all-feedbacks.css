@@ -1,0 +1,15 @@
+.wrap {
+  max-width: 1160px;
+  margin: 32px auto 72px;
+  padding: 0 24px;
+}
+
+.title {
+  margin: 0 0 12px 0;
+  font-size: 1.8rem;
+  font-weight: 800;
+}
+
+.muted {
+  color: var(--muted);
+}

@@ -1,0 +1,46 @@
+<div class="users-card">
+  <ui-spinner *ngIf="loading || loadingAverages" class="section-spinner" [size]="25" [thickness]="2"></ui-spinner>
+
+  <div class="section-head">
+    <h3 class="card-title">Intern grades</h3>
+  </div>
+
+  <div class="filters">
+    <label class="lbl">
+      <span>Month</span>
+      <select class="input" [(ngModel)]="selectedMonthIndex" (ngModelChange)="onMonthChange()">
+        <option *ngFor="let m of months" [ngValue]="m.index">{{ m.label }}</option>
+      </select>
+    </label>
+  </div>
+
+  <div *ngIf="loading" class="skeleton"></div>
+
+  <div class="table-wrap" *ngIf="!loading && visible?.length; else empty">
+    <table>
+      <thead>
+        <tr>
+          <th (click)="changeSort('name')" [class.sorted]="sortBy==='name'">
+            Name <span class="sort" *ngIf="sortBy==='name'">{{ sortDir==='asc' ? '↑' : '↓' }}</span>
+          </th>
+          <th (click)="changeSort('grade')" [class.sorted]="sortBy==='grade'">
+            Average grade <span class="sort" *ngIf="sortBy==='grade'">{{ sortDir==='asc' ? '↑' : '↓' }}</span>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let r of visible">
+          <td>{{ r.name }}</td>
+          <td class="avg">{{ r.avg===null ? '—' : (r.avg | number:'1.2-2') }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pager" *ngIf="!loading && totalPages > 1">
+    <button class="page-btn" *ngFor="let p of pages" [class.active]="p===page" (click)="pageClick(p)">{{ p }}</button>
+    <span class="total"></span>
+  </div>
+
+  <ng-template #empty><p class="muted">No interns.</p></ng-template>
+</div>

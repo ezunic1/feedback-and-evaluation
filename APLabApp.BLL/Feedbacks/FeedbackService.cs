@@ -277,6 +277,188 @@ namespace APLabApp.BLL.Feedbacks
                 .ToList();
         }
 
+        public async Task<IReadOnlyList<FeedbackDto>> GetReceivedFromMentorAsync(Guid internUserId, CancellationToken ct)
+        {
+            var list = await _feedbacks.Query()
+                .AsNoTracking()
+                .Include(f => f.Grade)
+                .Include(f => f.Season)
+                .Where(f => f.ReceiverUserId == internUserId && f.Grade != null)
+                .OrderByDescending(f => f.CreatedAtUtc)
+                .ToListAsync(ct);
+
+            return list.Select(f => new FeedbackDto(
+                f.Id,
+                f.SeasonId,
+                f.SenderUserId,
+                f.ReceiverUserId,
+                f.Comment,
+                f.CreatedAtUtc,
+                f.Grade == null ? null : new GradeDto(f.Grade.CareerSkills, f.Grade.Communication, f.Grade.Collaboration)
+            )).ToList();
+        }
+
+        public async Task<IReadOnlyList<FeedbackDto>> GetReceivedFromInternsAsync(Guid internUserId, CancellationToken ct)
+        {
+            var list = await _feedbacks.Query()
+                .AsNoTracking()
+                .Include(f => f.Grade)
+                .Where(f => f.ReceiverUserId == internUserId && f.Grade == null)
+                .OrderByDescending(f => f.CreatedAtUtc)
+                .ToListAsync(ct);
+
+            return list.Select(f => new FeedbackDto(
+                f.Id,
+                f.SeasonId,
+                f.SenderUserId,
+                f.ReceiverUserId,
+                f.Comment,
+                f.CreatedAtUtc,
+                null
+            )).ToList();
+        }
+
+        public async Task<IReadOnlyList<FeedbackDto>> GetSentByMeAsync(Guid userId, CancellationToken ct)
+        {
+            var list = await _feedbacks.Query()
+                .AsNoTracking()
+                .Include(f => f.Grade)
+                .Where(f => f.SenderUserId == userId)
+                .OrderByDescending(f => f.CreatedAtUtc)
+                .ToListAsync(ct);
+
+            return list.Select(f => new FeedbackDto(
+                f.Id,
+                f.SeasonId,
+                f.SenderUserId,
+                f.ReceiverUserId,
+                f.Comment,
+                f.CreatedAtUtc,
+                f.Grade == null ? null : new GradeDto(f.Grade.CareerSkills, f.Grade.Communication, f.Grade.Collaboration)
+            )).ToList();
+        }
+
+        public async Task<MentorMonthlyAveragesPageDto> GetMentorMonthlyAveragesPagedAsync(
+            Guid mentorUserId,
+            int seasonId,
+            int monthIndex,
+            string? sortBy,
+            string? sortDir,
+            int page,
+            int pageSize,
+            CancellationToken ct)
+        {
+            if (page < 1) page = 1;
+            if (pageSize < 1) pageSize = 10;
+
+            var mentor = await _users.GetByIdAsync(mentorUserId, ct);
+            if (mentor is null)
+                throw new InvalidOperationException("User not found.");
+
+            var season = await _seasons.GetByIdAsync(seasonId, ct);
+            if (season is null)
+                throw new InvalidOperationException("Season not found.");
+
+            if (season.MentorId != mentor.Id)
+                throw new InvalidOperationException("Forbidden for this season.");
+
+            var now = DateTime.UtcNow;
+            var seasonStart = new DateTime(season.StartDate.Year, season.StartDate.Month, season.StartDate.Day, 0, 0, 0, DateTimeKind.Utc);
+            var rawEnd = season.EndDate;
+            var seasonEndClamped = rawEnd < now ? rawEnd : now;
+
+            if (seasonEndClamped <= seasonStart)
+            {
+                var empty = new List<MentorInternAverageRowDto>();
+                return new MentorMonthlyAveragesPageDto(season.Id, 1, seasonStart, seasonEndClamped, 1, pageSize, 0, 0, empty);
+            }
+
+            var spans = new List<(DateTime Start, DateTime End)>();
+            var cur = seasonStart;
+            while (cur < seasonEndClamped)
+            {
+                var next = cur.AddMonths(1);
+                var spanEnd = next < seasonEndClamped ? next : seasonEndClamped;
+                spans.Add((cur, spanEnd));
+                cur = next;
+            }
+
+            if (spans.Count == 0)
+            {
+                spans.Add((seasonStart, seasonEndClamped));
+            }
+
+            if (monthIndex < 1) monthIndex = 1;
+            if (monthIndex > spans.Count) monthIndex = spans.Count;
+            var slot = spans[monthIndex - 1];
+            var slotStart = slot.Start;
+            var slotEnd = slot.End;
+
+            var interns = await _users.Query()
+                .AsNoTracking()
+                .Where(u => u.SeasonId == season.Id && u.Id != season.MentorId)
+                .Select(u => new { u.Id, u.FullName, u.Email })
+                .ToListAsync(ct);
+
+            var gradedAgg = await _feedbacks.Query()
+                .AsNoTracking()
+                .Include(f => f.Grade)
+                .Where(f =>
+                    f.SeasonId == season.Id &&
+                    f.SenderUserId == mentor.Id &&
+                    f.Grade != null &&
+                    f.CreatedAtUtc >= slotStart &&
+                    f.CreatedAtUtc < slotEnd)
+                .GroupBy(f => f.ReceiverUserId)
+                .Select(g => new
+                {
+                    InternUserId = g.Key,
+                    AverageScore = g.Average(f => (f.Grade!.CareerSkills + f.Grade!.Communication + f.Grade!.Collaboration) / 3.0),
+                    GradedFeedbacksCount = g.Count()
+                })
+                .ToListAsync(ct);
+
+            var aggMap = gradedAgg.ToDictionary(x => x.InternUserId, x => new { x.AverageScore, x.GradedFeedbacksCount });
+
+            var rows = interns
+                .Select(i =>
+                {
+                    var has = aggMap.TryGetValue(i.Id, out var a);
+                    var avg = has ? a!.AverageScore : (double?)null;
+                    var cnt = has ? a!.GradedFeedbacksCount : 0;
+                    return new MentorInternAverageRowDto(i.Id, i.FullName ?? string.Empty, i.Email ?? string.Empty, avg, cnt);
+                })
+                .ToList();
+
+            var sb = (sortBy ?? "grade").Trim().ToLowerInvariant();
+            var sd = (sortDir ?? "desc").Trim().ToLowerInvariant();
+
+            if (sb == "name")
+            {
+                if (sd == "asc")
+                    rows = rows.OrderBy(r => r.FullName).ThenBy(r => r.Email).ToList();
+                else
+                    rows = rows.OrderByDescending(r => r.FullName).ThenByDescending(r => r.Email).ToList();
+            }
+            else
+            {
+                if (sd == "asc")
+                    rows = rows.OrderBy(r => r.AverageScore.HasValue ? 0 : 1).ThenBy(r => r.AverageScore).ToList();
+                else
+                    rows = rows.OrderBy(r => r.AverageScore.HasValue ? 0 : 1).ThenByDescending(r => r.AverageScore).ToList();
+            }
+
+            var total = rows.Count;
+            var totalPages = total == 0 ? 0 : (int)Math.Ceiling(total / (double)pageSize);
+            if (totalPages == 0) page = 1;
+            else if (page > totalPages) page = totalPages;
+
+            var skip = (page - 1) * pageSize;
+            var pageItems = rows.Skip(skip).Take(pageSize).ToList();
+
+            return new MentorMonthlyAveragesPageDto(season.Id, monthIndex, slotStart, slotEnd, page, pageSize, total, totalPages, pageItems);
+        }
+
         private static void ValidateScore(int score, string paramName)
         {
             if (score < 1 || score > 5)

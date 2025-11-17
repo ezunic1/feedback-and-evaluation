@@ -109,8 +109,6 @@
   font-size: 0.9rem;
 }
 
-/* layout za feedback sekciju */
-
 .feedback-layout {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -131,6 +129,40 @@
   gap: 16px;
 }
 
+.overview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.overview-row {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.overview-row .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--brand1);
+  justify-self: center;
+}
+
+.overview-row .row-text {
+  line-height: 1.4;
+}
+
+.overview-row .row-text .range {
+  margin-left: 8px;
+  font-size: 0.85rem;
+}
+
+.overview-row .avg {
+  font-weight: 800;
+}
+
 @media (max-width: 900px) {
   .feedback-layout {
     grid-template-columns: 1fr;
@@ -140,8 +172,6 @@
     width: 100%;
   }
 }
-
-/* pager – isto kao u users table */
 
 .pager {
   margin-top: 12px;
@@ -185,11 +215,11 @@
   animation: shimmer 1.4s infinite;
 }
 
+.skeleton.small {
+  height: 36px;
+}
+
 @keyframes shimmer {
-  0% {
-    background-position: -200px 0;
-  }
-  100% {
-    background-position: calc(200px + 100%) 0;
-  }
+  0% { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
 }

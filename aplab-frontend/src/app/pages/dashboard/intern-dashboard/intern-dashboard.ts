@@ -2,17 +2,18 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { of } from 'rxjs';
+import { of, forkJoin } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { Navbar } from '../../../shared/navbar/navbar';
 import { SeasonList } from '../../../shared/season-list/season-list';
 import { FeedbackCard } from '../../../shared/feedback-card/feedback-card';
 import { Seasons, SeasonDto, UserDto as SeasonUserDto } from '../../../services/seasons';
 import { Auth } from '../../../services/auth';
-import { Feedbacks, FeedbackDto } from '../../../services/feedbacks';
+import { Feedbacks, FeedbackDto, MonthlyAverageDto } from '../../../services/feedbacks';
 import { Role } from '../../../services/users';
 
 type MeDto = {
+  id?: string | null;
   name?: string | null;
   email?: string | null;
   roleName?: Role | null;
@@ -48,7 +49,6 @@ export class InternDashboard implements OnInit {
 
   activeTab: 'seasons' | 'feedbacks' = 'seasons';
 
-  allFeedbacks: FeedbackDto[] = [];
   givenFeedbacks: FeedbackDto[] = [];
   mentorFeedbacks: FeedbackDto[] = [];
   internFeedbacks: FeedbackDto[] = [];
@@ -65,18 +65,19 @@ export class InternDashboard implements OnInit {
   internTotalPages = 0;
   internPages: number[] = [];
 
-  meId: string | null = null;
   meName = '';
   meRole: Role | null = 'intern';
 
   userMap: Record<string, UserView> = {};
+
+  overviewLoading = false;
+  monthlyOverview: MonthlyAverageDto[] = [];
 
   ngOnInit(): void {
     if (!this.auth.isLoggedIn()) {
       this.router.navigate(['/login']);
       return;
     }
-
     this.loadSeasons();
     this.loadFeedbacks();
   }
@@ -101,15 +102,18 @@ export class InternDashboard implements OnInit {
       next: s => {
         this.mySeason = s ?? null;
         if (this.mySeason) {
+          this.addMentorToUserMap(this.mySeason);
           this.seasonsApi.getMySeasonUsers().subscribe({
             next: u => {
               this.peers = u;
               this.buildUserMapFromPeers();
               this.loadOthers();
+              this.tryComputeOverview();
             },
             error: () => {
               this.peers = [];
               this.loadOthers();
+              this.tryComputeOverview();
             }
           });
         } else {
@@ -145,6 +149,7 @@ export class InternDashboard implements OnInit {
       .pipe(
         catchError(() =>
           of({
+            id: null,
             name: this.auth.user()?.name ?? null,
             email: this.auth.user()?.email ?? null,
             roleName: 'intern' as Role
@@ -155,113 +160,150 @@ export class InternDashboard implements OnInit {
         this.meName = me.name ?? '';
         this.meRole = (me.roleName as Role | null) ?? 'intern';
 
-        this.feedbacksApi.getMine().subscribe({
-          next: list => {
-            this.allFeedbacks = list || [];
-            this.detectMeIdFromFeedbacks();
-            this.buildUserMapFromPeers();
-            this.splitFeedbacks();
-            this.feedbackLoading = false;
-          },
-          error: () => {
-            this.allFeedbacks = [];
-            this.givenFeedbacks = [];
-            this.mentorFeedbacks = [];
-            this.internFeedbacks = [];
+        forkJoin({
+          recvMentor: this.feedbacksApi.getReceivedFromMentor(),
+          recvInterns: this.feedbacksApi.getReceivedFromInterns(),
+          sent: this.feedbacksApi.getSentByMe()
+        }).subscribe({
+          next: r => {
+            this.mentorFeedbacks = r.recvMentor || [];
+            this.internFeedbacks = r.recvInterns || [];
+            this.givenFeedbacks = r.sent || [];
+            this.addMentorToUserMap(this.mySeason);
             this.updatePagination();
             this.feedbackLoading = false;
+            this.tryComputeOverview();
+          },
+          error: () => {
+            this.mentorFeedbacks = [];
+            this.internFeedbacks = [];
+            this.givenFeedbacks = [];
+            this.updatePagination();
+            this.feedbackLoading = false;
+            this.tryComputeOverview();
           }
         });
       });
   }
 
-  private detectMeIdFromFeedbacks(): void {
-    if (this.meId || !this.allFeedbacks.length) return;
-
-    let candidates = new Set<string>();
-    const first = this.allFeedbacks[0];
-    candidates.add(first.senderUserId);
-    candidates.add(first.receiverUserId);
-
-    for (let i = 1; i < this.allFeedbacks.length && candidates.size > 1; i++) {
-      const f = this.allFeedbacks[i];
-      const idsThis = new Set<string>([f.senderUserId, f.receiverUserId]);
-      for (const c of Array.from(candidates)) {
-        if (!idsThis.has(c)) {
-          candidates.delete(c);
-        }
-      }
-    }
-
-    this.meId = candidates.size ? Array.from(candidates)[0] : null;
-
-    if (this.meId && this.meName) {
-      this.userMap[this.meId] = {
-        fullName: this.meName,
-        roleName: this.meRole
-      };
-    }
-  }
-
   private buildUserMapFromPeers(): void {
-    for (const p of this.peers || []) {
+    for (const p of (this.peers || [])) {
       this.userMap[p.id] = {
         fullName: p.fullName,
         roleName: (p.roleName as Role | null) ?? null
       };
     }
-
-    if (this.meId && this.meName && !this.userMap[this.meId]) {
-      this.userMap[this.meId] = {
-        fullName: this.meName,
-        roleName: this.meRole
-      };
-    }
+    this.addMentorToUserMap(this.mySeason);
   }
 
-  private splitFeedbacks(): void {
-    const list = this.allFeedbacks || [];
-
-    if (!this.meId) {
-      this.givenFeedbacks = [];
-      this.mentorFeedbacks = [];
-      this.internFeedbacks = [];
-      this.updatePagination();
-      return;
-    }
-
-    this.givenFeedbacks = list.filter(f => f.senderUserId === this.meId);
-    const received = list.filter(f => f.receiverUserId === this.meId);
-    this.mentorFeedbacks = received.filter(f => !!f.grade);
-    this.internFeedbacks = received.filter(f => !f.grade);
-
-    this.updatePagination();
+  private addMentorToUserMap(season: SeasonDto | null): void {
+    if (!season?.mentorId) return;
+    this.userMap[season.mentorId] = {
+      fullName: season.mentorName ?? 'Mentor',
+      roleName: 'mentor'
+    };
   }
 
   private updatePagination(): void {
     this.givenTotalPages = Math.ceil(this.givenFeedbacks.length / this.pageSize);
-    this.givenPages = Array.from({ length: this.givenTotalPages }, (_, i) => i + 1);
-    if (this.givenPage > this.givenTotalPages && this.givenTotalPages > 0) {
-      this.givenPage = this.givenTotalPages;
-    } else if (this.givenTotalPages === 0) {
-      this.givenPage = 1;
-    }
+    this.givenPages = Array.from({ length: this.givenTotalPages || 1 }, (_, i) => i + 1);
+    if (this.givenTotalPages === 0) this.givenPage = 1;
+    else if (this.givenPage > this.givenTotalPages) this.givenPage = this.givenTotalPages;
 
     this.mentorTotalPages = Math.ceil(this.mentorFeedbacks.length / this.pageSize);
-    this.mentorPages = Array.from({ length: this.mentorTotalPages }, (_, i) => i + 1);
-    if (this.mentorPage > this.mentorTotalPages && this.mentorTotalPages > 0) {
-      this.mentorPage = this.mentorTotalPages;
-    } else if (this.mentorTotalPages === 0) {
-      this.mentorPage = 1;
-    }
+    this.mentorPages = Array.from({ length: this.mentorTotalPages || 1 }, (_, i) => i + 1);
+    if (this.mentorTotalPages === 0) this.mentorPage = 1;
+    else if (this.mentorPage > this.mentorTotalPages) this.mentorPage = this.mentorTotalPages;
 
     this.internTotalPages = Math.ceil(this.internFeedbacks.length / this.pageSize);
-    this.internPages = Array.from({ length: this.internTotalPages }, (_, i) => i + 1);
-    if (this.internPage > this.internTotalPages && this.internTotalPages > 0) {
-      this.internPage = this.internTotalPages;
-    } else if (this.internTotalPages === 0) {
-      this.internPage = 1;
+    this.internPages = Array.from({ length: this.internTotalPages || 1 }, (_, i) => i + 1);
+    if (this.internTotalPages === 0) this.internPage = 1;
+    else if (this.internPage > this.internTotalPages) this.internPage = this.internTotalPages;
+  }
+
+  private tryComputeOverview(): void {
+    if (!this.mySeason) {
+      this.monthlyOverview = [];
+      return;
     }
+    this.monthlyOverview = this.computeOverviewFromMentorFeedbacks(
+      this.mySeason,
+      this.mentorFeedbacks
+    );
+  }
+
+  private computeOverviewFromMentorFeedbacks(season: SeasonDto, feedbacks: FeedbackDto[]): MonthlyAverageDto[] {
+    const start = new Date(season.startDate as unknown as string);
+    const rawEnd = new Date(season.endDate as unknown as string);
+    const now = new Date();
+    const end = now < rawEnd ? now : rawEnd;
+
+    if (!(start instanceof Date) || !(end instanceof Date) || isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) {
+      return [];
+    }
+
+    const starts: Date[] = [];
+    const ends: Date[] = [];
+    let s = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
+    while (s < end) {
+      const n = this.addMonthsUtc(s, 1);
+      const e = n < end ? n : end;
+      starts.push(s);
+      ends.push(e);
+      s = n;
+    }
+    const nMonths = starts.length;
+    if (nMonths === 0) return [];
+
+    const sum: number[] = Array(nMonths).fill(0);
+    const cnt: number[] = Array(nMonths).fill(0);
+
+    for (const f of feedbacks || []) {
+      if (!f.grade) continue;
+      const t = new Date(f.createdAtUtc);
+      if (t < starts[0] || t >= ends[nMonths - 1]) continue;
+      for (let i = 0; i < nMonths; i++) {
+        if (t >= starts[i] && t < ends[i]) {
+          const g = f.grade;
+          const avg = (g.careerSkills + g.communication + g.collaboration) / 3;
+          sum[i] += avg;
+          cnt[i] += 1;
+          break;
+        }
+      }
+    }
+
+    const result: MonthlyAverageDto[] = [];
+    for (let i = 0; i < nMonths; i++) {
+      const avg = cnt[i] > 0 ? sum[i] / cnt[i] : null;
+      result.push({
+        seasonId: season.id,
+        monthIndex: i + 1,
+        monthStartUtc: starts[i].toISOString(),
+        monthEndUtc: ends[i].toISOString(),
+        averageScore: avg,
+        gradedFeedbacksCount: cnt[i]
+      });
+    }
+    return result;
+  }
+
+  private addMonthsUtc(d: Date, m: number): Date {
+    const year = d.getUTCFullYear();
+    const month = d.getUTCMonth();
+    const day = d.getUTCDate();
+    const nd = new Date(Date.UTC(year, month + m, 1));
+    const lastDay = new Date(Date.UTC(nd.getUTCFullYear(), nd.getUTCMonth() + 1, 0)).getUTCDate();
+    const safeDay = Math.min(day, lastDay);
+    return new Date(Date.UTC(nd.getUTCFullYear(), nd.getUTCMonth(), safeDay));
+  }
+
+  formatRange(a: string, b: string): string {
+    const s = new Date(a);
+    const e = new Date(b);
+    const sd = `${String(s.getUTCDate()).padStart(2, '0')}.${String(s.getUTCMonth() + 1).padStart(2, '0')}.${s.getUTCFullYear()}`;
+    const ed = `${String(e.getUTCDate()).padStart(2, '0')}.${String(e.getUTCMonth() + 1).padStart(2, '0')}.${e.getUTCFullYear()}`;
+    return `${sd}–${ed}`;
   }
 
   givenPageClick(p: number): void {

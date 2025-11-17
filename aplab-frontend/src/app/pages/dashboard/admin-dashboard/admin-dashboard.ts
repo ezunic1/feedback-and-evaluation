@@ -5,13 +5,14 @@ import { Router, RouterLink } from '@angular/router';
 import { Navbar } from '../../../shared/navbar/navbar';
 import { SeasonList } from '../../../shared/season-list/season-list';
 import { UsersTable } from '../../../shared/users-table/users-table';
+import { FeedbackList } from '../../../shared/feedback-list/feedback-list';
 import { Seasons, SeasonDto } from '../../../services/seasons';
 import { Auth } from '../../../services/auth';
 
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, Navbar, SeasonList, UsersTable],
+  imports: [CommonModule, FormsModule, RouterLink, Navbar, SeasonList, UsersTable, FeedbackList],
   templateUrl: './admin-dashboard.html',
   styleUrls: ['./admin-dashboard.css']
 })
@@ -24,7 +25,7 @@ export class AdminDashboard implements OnInit {
   seasons: SeasonDto[] = [];
   filteredSeasons: SeasonDto[] = [];
   qSeason = '';
-  activeTab: 'seasons' | 'users' = 'seasons';
+  activeTab: 'seasons' | 'users' | 'feedbacks' = 'seasons';
 
   ngOnInit(): void {
     if (!this.auth.isLoggedIn()) { this.router.navigate(['/login']); return; }

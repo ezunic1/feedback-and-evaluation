@@ -1,0 +1,102 @@
+<div class="head-row">
+  <label class="label">Season</label>
+  <select class="select" [(ngModel)]="selectedSeasonId" (ngModelChange)="onSeasonChange()">
+    <option *ngFor="let s of seasonsVm" [ngValue]="s.id">
+      {{ s.name || 'Season' }}
+    </option>
+  </select>
+</div>
+
+<div class="grid">
+  <div class="col">
+    <app-intern-grades [seasonId]="selectedSeasonId"></app-intern-grades>
+
+    <button class="all-feedbacks-btn" routerLink="/all-feedbacks">
+      <span class="all-feedbacks-icon">
+        <svg viewBox="0 0 64 64" aria-hidden="true">
+          <rect x="10" y="6" rx="6" ry="6" width="32" height="44"></rect>
+          <rect x="18" y="16" width="16" height="4" rx="2" ry="2"></rect>
+          <rect x="18" y="26" width="16" height="4" rx="2" ry="2"></rect>
+          <rect x="18" y="36" width="16" height="4" rx="2" ry="2"></rect>
+          <circle cx="42" cy="42" r="10"></circle>
+          <line x1="49" y1="49" x2="58" y2="58" stroke-width="4" stroke-linecap="round"></line>
+        </svg>
+      </span>
+      <span class="all-feedbacks-label">
+        View all feedbacks
+      </span>
+    </button>
+  </div>
+
+  <div class="col">
+    <section class="card">
+      <div class="section-head">
+        <h3 class="card-title">Intern → Intern</h3>
+      </div>
+
+      <div *ngIf="loadingFeedbacks" class="skeleton"></div>
+      <ng-container *ngIf="!loadingFeedbacks">
+        <ng-container *ngIf="internToIntern.length; else emptyI2I">
+          <div class="feedback-grid">
+            <app-feedback-card
+              *ngFor="let f of i2iPageItems"
+              [feedback]="f"
+              [fromName]="nameOf(f.senderUserId)"
+              [toName]="nameOf(f.receiverUserId)"
+              [fromRole]="roleOf(f.senderUserId)"
+              [toRole]="roleOf(f.receiverUserId)">
+            </app-feedback-card>
+          </div>
+
+          <div class="pager" *ngIf="i2iTotalPages > 1">
+            <button
+              class="page-btn"
+              *ngFor="let p of i2iPages"
+              [class.active]="p===i2iPage"
+              (click)="i2iPageClick(p)">
+              {{ p }}
+            </button>
+          </div>
+        </ng-container>
+        <ng-template #emptyI2I>
+          <p class="muted">No intern-to-intern feedback.</p>
+        </ng-template>
+      </ng-container>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <h3 class="card-title">Intern → Mentor</h3>
+      </div>
+
+      <div *ngIf="loadingFeedbacks" class="skeleton"></div>
+      <ng-container *ngIf="!loadingFeedbacks">
+        <ng-container *ngIf="internToMentor.length; else emptyI2M">
+          <div class="feedback-grid">
+            <app-feedback-card
+              *ngFor="let f of i2mPageItems"
+              [feedback]="f"
+              [fromName]="nameOf(f.senderUserId)"
+              [toName]="nameOf(f.receiverUserId)"
+              [fromRole]="roleOf(f.senderUserId)"
+              [toRole]="roleOf(f.receiverUserId)">
+            </app-feedback-card>
+          </div>
+
+          <div class="pager" *ngIf="i2mTotalPages > 1">
+            <button
+              class="page-btn"
+              *ngFor="let p of i2mPages"
+              [class.active]="p===i2mPage"
+              (click)="i2mPageClick(p)">
+              {{ p }}
+            </button>
+          </div>
+        </ng-container>
+        <ng-template #emptyI2M>
+          <p class="muted">No intern-to-mentor feedback.</p>
+        </ng-template>
+      </ng-container>
+    </section>
+  </div>
+</div>

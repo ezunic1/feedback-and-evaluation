@@ -14,5 +14,19 @@ namespace APLabApp.BLL.Feedbacks
         Task<IReadOnlyList<FeedbackDto>> GetForInternAsync(Guid internUserId, int page, int pageSize, CancellationToken ct);
         Task<IReadOnlyList<FeedbackDto>> GetForMentorAsync(Guid mentorUserId, int page, int pageSize, CancellationToken ct);
         Task<IReadOnlyList<FeedbackDto>> GetForAdminAsync(int? seasonId, int page, int pageSize, CancellationToken ct);
+
+        Task<IReadOnlyList<FeedbackDto>> GetReceivedFromMentorAsync(Guid internUserId, CancellationToken ct);
+        Task<IReadOnlyList<FeedbackDto>> GetReceivedFromInternsAsync(Guid internUserId, CancellationToken ct);
+        Task<IReadOnlyList<FeedbackDto>> GetSentByMeAsync(Guid userId, CancellationToken ct);
+
+        Task<MentorMonthlyAveragesPageDto> GetMentorMonthlyAveragesPagedAsync(
+            Guid mentorUserId,
+            int seasonId,
+            int monthIndex,
+            string? sortBy,
+            string? sortDir,
+            int page,
+            int pageSize,
+            CancellationToken ct);
     }
 }

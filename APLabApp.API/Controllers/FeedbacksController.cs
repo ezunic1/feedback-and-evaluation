@@ -26,7 +26,9 @@ namespace APLabApp.Api.Controllers
 
         [Authorize(Roles = "intern,mentor")]
         [HttpGet("me")]
-        public async Task<ActionResult<IReadOnlyList<FeedbackDto>>> GetMyFeedbacks([FromQuery] int page = 1, CancellationToken ct = default)
+        public async Task<ActionResult<IReadOnlyList<FeedbackDto>>> GetMyFeedbacks(
+            [FromQuery] int page = 1,
+            CancellationToken ct = default)
         {
             var sub = User.FindFirstValue("sub") ?? User.FindFirstValue("sid");
             if (!Guid.TryParse(sub, out var keycloakId))
@@ -45,7 +47,7 @@ namespace APLabApp.Api.Controllers
 
             if (role == "mentor")
             {
-                var list = await _service.GetForMentorAsync(u.Id, page, 10, ct);
+                var list = await _service.GetForMentorAsync(u.Id, page, 500, ct);
                 return Ok(list);
             }
 
@@ -54,15 +56,74 @@ namespace APLabApp.Api.Controllers
 
         [Authorize(Roles = "admin")]
         [HttpGet]
-        public async Task<ActionResult<IReadOnlyList<FeedbackDto>>> GetForAdmin([FromQuery] int? seasonId, [FromQuery] int page = 1, CancellationToken ct = default)
+        public async Task<ActionResult<IReadOnlyList<FeedbackDto>>> GetForAdmin(
+            [FromQuery] int? seasonId,
+            [FromQuery] int page = 1,
+            CancellationToken ct = default)
         {
-            var list = await _service.GetForAdminAsync(seasonId, page, 10, ct);
+            var list = await _service.GetForAdminAsync(seasonId, page, 500, ct);
+            return Ok(list);
+        }
+
+        [Authorize(Roles = "intern")]
+        [HttpGet("me/received/mentor")]
+        public async Task<ActionResult<IReadOnlyList<FeedbackDto>>> GetReceivedFromMentor(
+            [FromQuery] int page = 1,
+            CancellationToken ct = default)
+        {
+            var sub = User.FindFirstValue("sub") ?? User.FindFirstValue("sid");
+            if (!Guid.TryParse(sub, out var keycloakId))
+                return Unauthorized();
+
+            var u = await _users.GetByKeycloakIdAsync(keycloakId, ct);
+            if (u is null)
+                return Unauthorized();
+
+            var list = await _service.GetReceivedFromMentorAsync(u.Id, ct);
+            return Ok(list);
+        }
+
+        [Authorize(Roles = "intern")]
+        [HttpGet("me/received/interns")]
+        public async Task<ActionResult<IReadOnlyList<FeedbackDto>>> GetReceivedFromInterns(
+            [FromQuery] int page = 1,
+            CancellationToken ct = default)
+        {
+            var sub = User.FindFirstValue("sub") ?? User.FindFirstValue("sid");
+            if (!Guid.TryParse(sub, out var keycloakId))
+                return Unauthorized();
+
+            var u = await _users.GetByKeycloakIdAsync(keycloakId, ct);
+            if (u is null)
+                return Unauthorized();
+
+            var list = await _service.GetReceivedFromInternsAsync(u.Id, ct);
+            return Ok(list);
+        }
+
+        [Authorize(Roles = "intern,mentor")]
+        [HttpGet("me/sent")]
+        public async Task<ActionResult<IReadOnlyList<FeedbackDto>>> GetSentByMe(
+            [FromQuery] int page = 1,
+            CancellationToken ct = default)
+        {
+            var sub = User.FindFirstValue("sub") ?? User.FindFirstValue("sid");
+            if (!Guid.TryParse(sub, out var keycloakId))
+                return Unauthorized();
+
+            var u = await _users.GetByKeycloakIdAsync(keycloakId, ct);
+            if (u is null)
+                return Unauthorized();
+
+            var list = await _service.GetSentByMeAsync(u.Id, ct);
             return Ok(list);
         }
 
         [Authorize(Roles = "intern")]
         [HttpPost("intern")]
-        public async Task<ActionResult<FeedbackDto>> CreateAsIntern([FromBody] CreateInternFeedbackRequest req, CancellationToken ct)
+        public async Task<ActionResult<FeedbackDto>> CreateAsIntern(
+            [FromBody] CreateInternFeedbackRequest req,
+            CancellationToken ct)
         {
             var sub = User.FindFirstValue("sub") ?? User.FindFirstValue("sid");
             if (!Guid.TryParse(sub, out var keycloakId))
@@ -78,7 +139,9 @@ namespace APLabApp.Api.Controllers
 
         [Authorize(Roles = "mentor")]
         [HttpPost("mentor")]
-        public async Task<ActionResult<FeedbackDto>> CreateAsMentor([FromBody] CreateMentorFeedbackRequest req, CancellationToken ct)
+        public async Task<ActionResult<FeedbackDto>> CreateAsMentor(
+            [FromBody] CreateMentorFeedbackRequest req,
+            CancellationToken ct)
         {
             var sub = User.FindFirstValue("sub") ?? User.FindFirstValue("sid");
             if (!Guid.TryParse(sub, out var keycloakId))
@@ -92,12 +155,37 @@ namespace APLabApp.Api.Controllers
             return Ok(created);
         }
 
-       [Authorize(Roles = "admin")]
+        [Authorize(Roles = "admin")]
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> Delete(int id, CancellationToken ct)
         {
             await _service.DeleteAsync(id, ct);
             return NoContent();
+        }
+
+        [Authorize(Roles = "mentor")]
+        [HttpGet("mentor/averages")]
+        public async Task<ActionResult<MentorMonthlyAveragesPageDto>> GetMentorAverages(
+            [FromQuery] int seasonId,
+            [FromQuery] int monthIndex,
+            [FromQuery] string? sortBy = "grade",
+            [FromQuery] string? sortDir = "desc",
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            CancellationToken ct = default)
+        {
+            var sub = User.FindFirstValue("sub") ?? User.FindFirstValue("sid");
+            if (!Guid.TryParse(sub, out var keycloakId))
+                return Unauthorized();
+
+            var me = await _users.GetByKeycloakIdAsync(keycloakId, ct);
+            if (me is null)
+                return Unauthorized();
+
+            var dto = await _service.GetMentorMonthlyAveragesPagedAsync(
+                me.Id, seasonId, monthIndex, sortBy, sortDir, page, pageSize, ct);
+
+            return Ok(dto);
         }
 
         private static string ResolveRole(ClaimsPrincipal principal)

@@ -61,9 +61,42 @@
               <div class="section-head">
                 <h3 class="card-title">Overview</h3>
               </div>
-              <p class="muted">
-                Coming soon: a quick overview of your feedback, stats and trends.
-              </p>
+
+              <ng-container *ngIf="mySeason; else noSeasonOverview">
+                <ng-container *ngIf="!overviewLoading; else overviewSkeleton">
+                  <ng-container *ngIf="monthlyOverview?.length; else noMonths">
+                    <div class="overview-list">
+                      <div class="overview-row" *ngFor="let m of monthlyOverview">
+                        <div class="dot"></div>
+                        <div class="row-text">
+                          <strong>Month {{ m.monthIndex }}</strong> —
+                          Mentor gave {{ m.gradedFeedbacksCount }} graded feedback{{ m.gradedFeedbacksCount===1 ? '' : 's' }};
+                          average score:
+                          <span class="avg" [class.muted]="m.averageScore===null">
+                            {{ m.averageScore===null ? '—' : (m.averageScore | number:'1.2-2') }}
+                          </span>
+                          <span class="muted range">
+                            {{ formatRange(m.monthStartUtc, m.monthEndUtc) }}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </ng-container>
+                  <ng-template #noMonths>
+                    <p class="muted">No months to show yet.</p>
+                  </ng-template>
+                </ng-container>
+
+                <ng-template #overviewSkeleton>
+                  <div class="skeleton small"></div>
+                  <div class="skeleton small"></div>
+                  <div class="skeleton small"></div>
+                </ng-template>
+              </ng-container>
+
+              <ng-template #noSeasonOverview>
+                <p class="muted">Join a season to see your monthly overview.</p>
+              </ng-template>
             </div>
 
             <div class="card">
@@ -138,7 +171,7 @@
 
             <div class="card">
               <div class="section-head">
-                <h3 class="card-title">Given feedbacks</h3>
+                <h3 class="card-title">Sent feedback</h3>
               </div>
 
               <ng-container *ngIf="givenFeedbacks?.length; else noGivenTpl">
@@ -166,7 +199,7 @@
               </ng-container>
 
               <ng-template #noGivenTpl>
-                <p class="muted">You have not given any feedback yet.</p>
+                <p class="muted">You have not sent any feedback yet.</p>
               </ng-template>
             </div>
           </div>

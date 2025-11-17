@@ -22,6 +22,15 @@
       (click)="activeTab='users'">
       Users
     </button>
+
+    <button
+      class="tablink"
+      [class.active]="activeTab==='feedbacks'"
+      role="tab"
+      [attr.aria-selected]="activeTab==='feedbacks'"
+      (click)="activeTab='feedbacks'">
+      Feedbacks
+    </button>
   </div>
 
   <section class="card" *ngIf="activeTab==='seasons'" role="tabpanel">
@@ -67,5 +76,13 @@
     </div>
 
     <app-users-table (open)="openUser($event)"></app-users-table>
+  </section>
+
+  <section class="card" *ngIf="activeTab==='feedbacks'" role="tabpanel">
+    <div class="section-head">
+      <h3 class="card-title">Feedbacks</h3>
+    </div>
+
+    <app-feedback-list></app-feedback-list>
   </section>
 </div>

@@ -16,6 +16,15 @@
 
     <button
       class="tablink"
+      [class.active]="activeTab==='feedbacks'"
+      role="tab"
+      [attr.aria-selected]="activeTab==='feedbacks'"
+      (click)="activeTab='feedbacks'">
+      Feedbacks
+    </button>
+
+    <button
+      class="tablink"
       [class.active]="activeTab==='others'"
       role="tab"
       [attr.aria-selected]="activeTab==='others'"
@@ -25,6 +34,7 @@
   </div>
 
   <ng-container *ngIf="!loading; else loadingTpl">
+    <!-- My seasons -->
     <section *ngIf="activeTab==='mine'" role="tabpanel">
       <div class="card">
         <div class="section-head">
@@ -61,6 +71,16 @@
       </div>
     </section>
 
+    <!-- Feedbacks -->
+    <section class="card" *ngIf="activeTab==='feedbacks'" role="tabpanel">
+      <div class="section-head">
+        <h3 class="card-title">Feedbacks</h3>
+      </div>
+
+      <app-feedback-list></app-feedback-list>
+    </section>
+
+    <!-- Other seasons -->
     <section class="card" *ngIf="activeTab==='others'" role="tabpanel">
       <div class="section-head">
         <h3 class="card-title">Other seasons</h3>

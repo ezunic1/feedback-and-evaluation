@@ -1,5 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { Navbar } from '../../../shared/navbar/navbar';
@@ -9,13 +10,14 @@ import { Users, UserListItem } from '../../../services/users';
 import { Auth } from '../../../services/auth';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
+import { FeedbackList } from '../../../shared/feedback-list/feedback-list';
 
 type MeDto = { name?: string | null; email?: string | null };
 
 @Component({
   selector: 'app-mentor-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, Navbar, SeasonList],
+  imports: [CommonModule, FormsModule, RouterLink, Navbar, SeasonList, FeedbackList],
   templateUrl: './mentor-dashboard.html',
   styleUrl: './mentor-dashboard.css'
 })
@@ -28,10 +30,13 @@ export class MentorDashboard implements OnInit {
 
   loading = true;
   all: SeasonDto[] = [];
+  mine: SeasonDto[] = [];
   ongoing: SeasonDto | null = null;
   myPrevious: SeasonDto[] = [];
   others: SeasonDto[] = [];
-  activeTab: 'mine' | 'others' = 'mine';
+  activeTab: 'mine' | 'feedbacks' | 'others' = 'mine';
+
+  selectedSeasonId: number | null = null;
 
   ngOnInit(): void {
     if (!this.auth.isLoggedIn()) {
@@ -66,11 +71,12 @@ export class MentorDashboard implements OnInit {
 
             const myLocalId = (myMentorRow?.id || '').toLowerCase().trim();
 
-            const mine = this.all.filter(s => {
+            const mineAll = this.all.filter(s => {
               const byId = myLocalId && (s.mentorId || '').toLowerCase().trim() === myLocalId;
               const byName = meName && (s.mentorName || '').toLowerCase().trim() === meName;
               return byId || byName;
             });
+            this.mine = mineAll;
 
             const inRange = (s: SeasonDto) => {
               const sd = new Date(s.startDate).getTime();
@@ -81,24 +87,15 @@ export class MentorDashboard implements OnInit {
             const isUpcoming = (s: SeasonDto) => new Date(s.startDate).getTime() > now;
             const isPast = (s: SeasonDto) => new Date(s.endDate).getTime() < now;
 
-            const ongoingCandidates = mine
+            const ongoingCandidates = this.mine
               .filter(inRange)
-              .sort(
-                (a, b) =>
-                  new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
-              );
-            const upcomingCandidates = mine
+              .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+            const upcomingCandidates = this.mine
               .filter(isUpcoming)
-              .sort(
-                (a, b) =>
-                  new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
-              );
-            const pastCandidates = mine
+              .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+            const pastCandidates = this.mine
               .filter(isPast)
-              .sort(
-                (a, b) =>
-                  new Date(b.endDate).getTime() - new Date(a.endDate).getTime()
-              );
+              .sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime());
 
             this.ongoing =
               ongoingCandidates[0] ?? upcomingCandidates[0] ?? pastCandidates[0] ?? null;
@@ -106,11 +103,10 @@ export class MentorDashboard implements OnInit {
             this.myPrevious = pastCandidates;
 
             this.others = this.all
-              .filter(s => mine.every(ms => ms.id !== s.id))
-              .sort(
-                (a, b) =>
-                  new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
-              );
+              .filter(s => this.mine.every(ms => ms.id !== s.id))
+              .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+
+            this.selectedSeasonId = this.ongoing?.id ?? (this.mine.length ? this.mine[0].id : null);
 
             this.loading = false;
           },
@@ -120,6 +116,8 @@ export class MentorDashboard implements OnInit {
         });
       });
   }
+
+  onSeasonChange(): void {}
 
   openSeason(idOrEvent: any) {
     const id =

@@ -1,0 +1,148 @@
+.users-card {
+  position: relative;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.08);
+  padding: 18px 18px 22px;
+  margin-bottom: 22px;
+}
+
+.section-spinner {
+  position: absolute;
+  top: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.card-title {
+  margin: 4px 0 0 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  align-items: center;
+}
+
+.lbl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lbl span {
+  font-weight: 700;
+  color: #6b6b6b;
+}
+
+.input {
+  border: 1px solid #e6eaec;
+  border-radius: 10px;
+  padding: 8px 10px;
+  min-width: 160px;
+  background: #fff;
+}
+
+.skeleton {
+  height: 120px;
+  background: linear-gradient(90deg,#f1f3f4 25%,#f6f7f8 37%,#f1f3f4 63%);
+  border-radius: 12px;
+  animation: shimmer 1.4s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200px 0 }
+  100% { background-position: calc(200px + 100%) 0 }
+}
+
+.table-wrap {
+  overflow: auto;
+  border: 1px solid #e6eaec;
+  border-radius: 12px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+th, td {
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid #f0f2f4;
+}
+
+thead th {
+  font-weight: 900;
+  color: #2f2f2f;
+  background: #fafafa;
+  letter-spacing: .2px;
+  cursor: pointer;
+}
+
+thead th.sorted {
+  color: #000;
+}
+
+tbody tr:hover {
+  background: #f7f9fa;
+}
+
+.muted {
+  color: #4a4a4a;
+  font-weight: 600;
+}
+
+.avg {
+  font-weight: 700;
+  color: #2f2f2f;
+}
+
+.pager {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+}
+
+.page-btn {
+  border: 1px solid #e6eaec;
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.page-btn:hover {
+  background: #f5f7f8;
+}
+
+.page-btn.active {
+  background: #c1d72d;
+  color: #fff;
+  border-color: #c1d72d;
+}
+
+.total {
+  margin-left: 6px;
+  color: #6b6b6b;
+  font-weight: 700;
+}
