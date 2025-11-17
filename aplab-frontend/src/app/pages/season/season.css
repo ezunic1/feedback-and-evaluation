@@ -353,3 +353,25 @@ thead th {
 .linkish {
   cursor: pointer;
 }
+
+.btn.feedback {
+  background-color: #4a90e2;
+  color: #fff;
+  border: none;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+.btn.feedback:hover {
+  background-color: #427fcb;
+}
+
+td.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 18px;
+}
+
+.actions-spacer {
+  flex: 1 1 auto;
+}
+

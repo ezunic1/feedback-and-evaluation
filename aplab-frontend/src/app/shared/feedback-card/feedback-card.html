@@ -1,0 +1,67 @@
+<div
+  class="feedback-card"
+  [class.expanded]="expanded"
+  (click)="toggleExpanded()"
+>
+  <div class="feedback-header">
+    <div class="party from">
+      <div class="party-label">From</div>
+      <div class="party-name">{{ fromName }}</div>
+      <div class="party-role" *ngIf="fromRole">
+        {{ fromRole | titlecase }}
+      </div>
+    </div>
+
+    <div class="arrow">→</div>
+
+    <div class="party to">
+      <div class="party-label">To</div>
+      <div class="party-name">{{ toName }}</div>
+      <div class="party-role" *ngIf="toRole">
+        {{ toRole | titlecase }}
+      </div>
+    </div>
+
+    <div class="meta">
+      <span class="meta-label">Created At</span>
+      <span class="meta-date">{{ createdAtLocal }}</span>
+      <span class="toggle-label">
+        {{ expanded ? 'Hide details' : 'Show details' }}
+      </span>
+      <span class="chevron" [class.up]="expanded">⌃</span>
+    </div>
+  </div>
+
+  <div class="feedback-details" *ngIf="expanded">
+    <div class="grades" *ngIf="hasGrades">
+      <div class="section-title">Grades</div>
+      <div class="grades-grid">
+        <div class="grade-item">
+          <span class="grade-label">Career Skills</span>
+          <span class="grade-value">
+            {{ feedback.grade?.careerSkills }}/5
+          </span>
+        </div>
+        <div class="grade-item">
+          <span class="grade-label">Communication</span>
+          <span class="grade-value">
+            {{ feedback.grade?.communication }}/5
+          </span>
+        </div>
+        <div class="grade-item">
+          <span class="grade-label">Collaboration</span>
+          <span class="grade-value">
+            {{ feedback.grade?.collaboration }}/5
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="comment-block">
+      <div class="section-title">Comment</div>
+      <p class="comment-text">
+        {{ feedback.comment }}
+      </p>
+    </div>
+  </div>
+</div>

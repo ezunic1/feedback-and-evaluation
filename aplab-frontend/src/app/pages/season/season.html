@@ -37,6 +37,14 @@
         <div class="value">
           <span class="value-row">
             <span>{{ season?.mentorName || '—' }}</span>
+            <button
+              *ngIf="canLeaveFeedbackToMentorSimple()"
+              class="btn sm primary"
+              (click)="openFeedbackForMentorSimple()">
+              Leave feedback
+            </button>
+
+
             <button *ngIf="canEditMentor && !isEditingMentor"
                     class="icon-btn"
                     (click)="startEditMentor()"
@@ -86,16 +94,32 @@
           <tr>
             <th>Name</th>
             <th>Email</th>
-            <th class="actions" *ngIf="canManageInterns">Actions</th>
+            <th class="actions">Actions</th>
           </tr>
         </thead>
         <tbody>
           <tr *ngFor="let u of users">
             <td (click)="openUser(u.id)" class="linkish">{{ u.fullName || '—' }}</td>
             <td class="muted" (click)="openUser(u.id)">{{ u.email }}</td>
-            <td class="actions" *ngIf="canManageInterns">
-              <button class="btn sm" (click)="removeIntern(u.id)">Remove</button>
+            <td class="actions">
+              <button
+                *ngIf="canLeaveFeedbackFor(u)"
+                class="btn sm primary"
+                (click)="openLeaveFeedback(u)">
+                Leave feedback
+              </button>
+
+              <span class="actions-spacer"></span>
+
+              <button
+                *ngIf="canManageInterns"
+                class="btn sm"
+                (click)="removeIntern(u.id)">
+                Remove
+              </button>
             </td>
+
+
           </tr>
         </tbody>
       </table>
@@ -160,3 +184,11 @@
   (confirm)="onConfirmDeleteSeason()"
   (cancel)="onCancelDeleteSeason()">
 </app-confirm-delete>
+
+<app-leave-feedback
+  *ngIf="showLeaveFeedback && season && feedbackTarget"
+  [seasonId]="season.id"
+  [targetUser]="feedbackTarget"
+  [currentRole]="currentRole"
+  (close)="onCloseLeaveFeedback($event)">
+</app-leave-feedback>

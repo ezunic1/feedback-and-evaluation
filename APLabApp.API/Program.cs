@@ -1,6 +1,7 @@
 using APLabApp.API;
 using APLabApp.API.Infrastructure;
 using APLabApp.BLL.Auth;
+using APLabApp.BLL.Feedbacks;
 using APLabApp.BLL.Seasons;
 using APLabApp.BLL.Users;
 using APLabApp.Dal;
@@ -43,6 +44,11 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddHttpClient<IKeycloakAdminService, KeycloakAdminService>();
 builder.Services.AddScoped<ISeasonRepository, SeasonRepository>();
 builder.Services.AddScoped<ISeasonService, SeasonService>();
+
+builder.Services.AddScoped<IFeedbackRepository, FeedbackRepository>();
+builder.Services.AddScoped<IFeedbackService, FeedbackService>();
+
+builder.Services.AddScoped<IGradeRepository, GradeRepository>();
 
 builder.Services.AddControllers();
 builder.Services.AddProblemDetails();

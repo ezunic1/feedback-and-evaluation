@@ -1,49 +1,195 @@
-:root{
-  --text:#2f2f2f;
-  --stroke:#e6eaec;
-  --shadow:0 8px 40px rgba(0,0,0,.08)
+:host {
+  --brand1: #c1d72d;
 }
-.wrap{
-  max-width:1160px;
-  margin:32px auto 72px;
-  padding:0 24px;
-  color:var(--text);
-  font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif
+
+:root {
+  --brand1: #c1d72d;
+  --text: #2f2f2f;
+  --muted: #6b6b6b;
+  --stroke: #e6eaec;
+  --shadow: 0 8px 40px rgba(0,0,0,.08);
 }
-.toolbar{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  margin-bottom:18px
+
+.wrap {
+  max-width: 1160px;
+  margin: 32px auto 72px;
+  padding: 0 24px;
+  color: var(--text);
+  font-family: Segoe UI, Tahoma, Geneva, Verdana, sans-serif;
 }
-.title{
-  margin:0;
-  font-size:2.2rem;
-  font-weight:800;
-  letter-spacing:.2px
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  gap: 12px;
 }
-.card{
-  background:#fff;
-  border-radius:16px;
-  box-shadow:var(--shadow);
-  padding:18px 18px 22px;
-  margin-bottom:22px
+
+.title {
+  margin: 0;
+  font-size: 2.2rem;
+  font-weight: 800;
+  letter-spacing: .2px;
 }
-.card-title{
-  margin:4px 0 10px 0;
-  font-size:1.25rem;
-  font-weight:800
+
+.tabs-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 30%;
+  min-width: 260px;
+  margin: 6px 0 14px;
 }
-.muted{
-  color:#6b6b6b
+
+.tabs-grid::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: #dcdfe3;
+  z-index: 0;
 }
-.skeleton{
-  height:120px;
-  background:linear-gradient(90deg,#f1f3f4 25%,#f6f7f8 37%,#f1f3f4 63%);
-  border-radius:12px;
-  animation:shimmer 1.4s infinite
+
+.tablink {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 12px 8px;
+  font-weight: 800;
+  color: var(--text);
+  cursor: pointer;
+  text-align: center;
+  position: relative;
 }
-@keyframes shimmer{
-  0%{background-position:-200px 0}
-  100%{background-position:calc(200px + 100%) 0}
+
+.tablink::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: transparent;
+  z-index: 1;
+  transition: background-color .15s ease;
+}
+
+.tablink.active::after {
+  background: var(--brand1, #c1d72d);
+}
+
+.card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 18px 18px 22px;
+  margin-bottom: 22px;
+}
+
+.card-title {
+  margin: 4px 0 10px 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.muted {
+  color: var(--muted);
+  margin: 4px 0 0 0;
+  font-size: 0.9rem;
+}
+
+/* layout za feedback sekciju */
+
+.feedback-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+  align-items: flex-start;
+}
+
+.feedback-column {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.feedback-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .feedback-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .feedback-column {
+    width: 100%;
+  }
+}
+
+/* pager – isto kao u users table */
+
+.pager {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+}
+
+.page-btn {
+  border: 1px solid #e6eaec;
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.page-btn:hover {
+  background: #f5f7f8;
+}
+
+.page-btn.active {
+  background: #c1d72d;
+  color: #fff;
+  border-color: #c1d72d;
+}
+
+.total {
+  margin-left: 6px;
+  color: #6b6b6b;
+  font-weight: 700;
+}
+
+.skeleton {
+  height: 120px;
+  background: linear-gradient(90deg, #f1f3f4 25%, #f6f7f8 37%, #f1f3f4 63%);
+  border-radius: 12px;
+  animation: shimmer 1.4s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
 }

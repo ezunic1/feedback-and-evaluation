@@ -1,0 +1,89 @@
+<div class="lf-backdrop" (click)="onCancel()">
+  <div class="lf-modal" (click)="$event.stopPropagation()">
+    <h3 class="lf-title">Leave feedback</h3>
+
+    <p class="lf-subtitle">
+      For: {{ targetUser?.fullName || targetUser?.email }}
+    </p>
+
+    <p class="lf-subtitle small" *ngIf="currentRole === 'mentor'">
+      Please rate the intern and optionally leave a comment.
+    </p>
+    <p class="lf-subtitle small" *ngIf="currentRole === 'intern'">
+      Your feedback is text-only. Be honest and constructive.
+    </p>
+
+    <div class="lf-form" *ngIf="currentRole === 'mentor'; else internFeedback">
+      <div class="lf-field-group">
+        <label class="lf-label" for="careerRating">Career skills</label>
+        <input
+          id="careerRating"
+          class="lf-input"
+          type="number"
+          min="1"
+          max="5"
+          [(ngModel)]="careerRating"
+        />
+      </div>
+
+      <div class="lf-field-group">
+        <label class="lf-label" for="communicationRating">Communication</label>
+        <input
+          id="communicationRating"
+          class="lf-input"
+          type="number"
+          min="1"
+          max="5"
+          [(ngModel)]="communicationRating"
+        />
+      </div>
+
+      <div class="lf-field-group">
+        <label class="lf-label" for="collaborationRating">Collaboration</label>
+        <input
+          id="collaborationRating"
+          class="lf-input"
+          type="number"
+          min="1"
+          max="5"
+          [(ngModel)]="collaborationRating"
+        />
+      </div>
+
+      <div class="lf-field-group">
+        <label class="lf-label" for="comment">Comment</label>
+        <textarea
+          id="comment"
+          class="lf-textarea"
+          rows="4"
+          [(ngModel)]="comment">
+        </textarea>
+      </div>
+    </div>
+
+    <ng-template #internFeedback>
+      <div class="lf-form">
+        <div class="lf-field-group">
+          <label class="lf-label" for="commentIntern">Comment</label>
+          <textarea
+            id="commentIntern"
+            class="lf-textarea"
+            rows="5"
+            [(ngModel)]="comment">
+          </textarea>
+        </div>
+      </div>
+    </ng-template>
+
+    <p class="lf-error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+    <div class="lf-actions">
+      <button class="btn ghost" type="button" (click)="onCancel()">
+        Cancel
+      </button>
+      <button class="btn primary" type="button" (click)="onSubmit()" [disabled]="saving">
+        {{ saving ? 'Submitting…' : 'Submit' }}
+      </button>
+    </div>
+  </div>
+</div>

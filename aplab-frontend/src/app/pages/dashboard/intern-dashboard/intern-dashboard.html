@@ -4,32 +4,181 @@
     <h2 class="title">Intern Dashboard</h2>
   </div>
 
-  <ng-container *ngIf="!loading; else loadingTpl">
-    <div class="card">
-      <h3 class="card-title">My season</h3>
-      <ng-container *ngIf="mySeason; else noMine">
-        <app-season-list
-          [seasons]="[mySeason!]"
-          (open)="openSeason($event)">
-        </app-season-list>
-      </ng-container>
-      <ng-template #noMine>
-        <p class="muted">You are not assigned to a season.</p>
-      </ng-template>
-    </div>
+  <div class="tabs-grid" role="tablist" aria-label="Sections">
+    <button
+      class="tablink"
+      [class.active]="activeTab==='seasons'"
+      role="tab"
+      [attr.aria-selected]="activeTab==='seasons'"
+      (click)="activeTab='seasons'">
+      Seasons
+    </button>
 
-    <div class="card">
-      <h3 class="card-title">Other seasons</h3>
-      <ng-container *ngIf="others?.length; else noOthers">
-        <app-season-list
-          [seasons]="others"
-          (open)="openSeason($event)">
-        </app-season-list>
+    <button
+      class="tablink"
+      [class.active]="activeTab==='feedbacks'"
+      role="tab"
+      [attr.aria-selected]="activeTab==='feedbacks'"
+      (click)="activeTab='feedbacks'">
+      Feedbacks
+    </button>
+  </div>
+
+  <ng-container *ngIf="!loading; else loadingTpl">
+    <section *ngIf="activeTab==='seasons'" role="tabpanel">
+      <div class="card">
+        <h3 class="card-title">My season</h3>
+        <ng-container *ngIf="mySeason; else noMine">
+          <app-season-list
+            [seasons]="[mySeason!]"
+            (open)="openSeason($event)">
+          </app-season-list>
+        </ng-container>
+        <ng-template #noMine>
+          <p class="muted">You are not assigned to a season.</p>
+        </ng-template>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Other seasons</h3>
+        <ng-container *ngIf="others?.length; else noOthers">
+          <app-season-list
+            [seasons]="others"
+            (open)="openSeason($event)">
+          </app-season-list>
+        </ng-container>
+        <ng-template #noOthers>
+          <p class="muted">No other seasons.</p>
+        </ng-template>
+      </div>
+    </section>
+
+    <section *ngIf="activeTab==='feedbacks'" role="tabpanel">
+      <ng-container *ngIf="!feedbackLoading; else feedbackLoadingTpl">
+        <div class="feedback-layout">
+          <div class="feedback-column">
+            <div class="card">
+              <div class="section-head">
+                <h3 class="card-title">Overview</h3>
+              </div>
+              <p class="muted">
+                Coming soon: a quick overview of your feedback, stats and trends.
+              </p>
+            </div>
+
+            <div class="card">
+              <div class="section-head">
+                <h3 class="card-title">Feedback from mentor</h3>
+              </div>
+
+              <ng-container *ngIf="mentorFeedbacks?.length; else noMentorTpl">
+                <div class="feedback-grid">
+                  <app-feedback-card
+                    *ngFor="let fb of mentorPageItems"
+                    [feedback]="fb"
+                    [fromName]="userMap[fb.senderUserId]?.fullName || 'Mentor'"
+                    [fromRole]="userMap[fb.senderUserId]?.roleName || 'mentor'"
+                    [toName]="meName"
+                    [toRole]="meRole">
+                  </app-feedback-card>
+                </div>
+
+                <div class="pager" *ngIf="mentorTotalPages > 1">
+                  <button
+                    class="page-btn"
+                    *ngFor="let p of mentorPages"
+                    [class.active]="p===mentorPage"
+                    (click)="mentorPageClick(p)">
+                    {{ p }}
+                  </button>
+                  <span class="total"></span>
+                </div>
+              </ng-container>
+
+              <ng-template #noMentorTpl>
+                <p class="muted">No feedback from mentor yet.</p>
+              </ng-template>
+            </div>
+          </div>
+
+          <div class="feedback-column">
+            <div class="card">
+              <div class="section-head">
+                <h3 class="card-title">Feedback from interns</h3>
+              </div>
+
+              <ng-container *ngIf="internFeedbacks?.length; else noInternTpl">
+                <div class="feedback-grid">
+                  <app-feedback-card
+                    *ngFor="let fb of internPageItems"
+                    [feedback]="fb"
+                    [fromName]="userMap[fb.senderUserId]?.fullName || 'Intern'"
+                    [fromRole]="userMap[fb.senderUserId]?.roleName || 'intern'"
+                    [toName]="meName"
+                    [toRole]="meRole">
+                  </app-feedback-card>
+                </div>
+
+                <div class="pager" *ngIf="internTotalPages > 1">
+                  <button
+                    class="page-btn"
+                    *ngFor="let p of internPages"
+                    [class.active]="p===internPage"
+                    (click)="internPageClick(p)">
+                    {{ p }}
+                  </button>
+                  <span class="total"></span>
+                </div>
+              </ng-container>
+
+              <ng-template #noInternTpl>
+                <p class="muted">No feedback from other interns yet.</p>
+              </ng-template>
+            </div>
+
+            <div class="card">
+              <div class="section-head">
+                <h3 class="card-title">Given feedbacks</h3>
+              </div>
+
+              <ng-container *ngIf="givenFeedbacks?.length; else noGivenTpl">
+                <div class="feedback-grid">
+                  <app-feedback-card
+                    *ngFor="let fb of givenPageItems"
+                    [feedback]="fb"
+                    [fromName]="meName"
+                    [fromRole]="meRole"
+                    [toName]="userMap[fb.receiverUserId]?.fullName || 'Unknown user'"
+                    [toRole]="userMap[fb.receiverUserId]?.roleName || null">
+                  </app-feedback-card>
+                </div>
+
+                <div class="pager" *ngIf="givenTotalPages > 1">
+                  <button
+                    class="page-btn"
+                    *ngFor="let p of givenPages"
+                    [class.active]="p===givenPage"
+                    (click)="givenPageClick(p)">
+                    {{ p }}
+                  </button>
+                  <span class="total"></span>
+                </div>
+              </ng-container>
+
+              <ng-template #noGivenTpl>
+                <p class="muted">You have not given any feedback yet.</p>
+              </ng-template>
+            </div>
+          </div>
+        </div>
       </ng-container>
-      <ng-template #noOthers>
-        <p class="muted">No other seasons.</p>
+
+      <ng-template #feedbackLoadingTpl>
+        <div class="card">
+          <div class="skeleton"></div>
+        </div>
       </ng-template>
-    </div>
+    </section>
   </ng-container>
 
   <ng-template #loadingTpl>
