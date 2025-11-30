@@ -1,0 +1,15 @@
+<div class="cc-backdrop" (click)="onCancel()">
+  <div class="cc-modal" (click)="$event.stopPropagation()">
+    <h3 class="cc-title">{{ title }}</h3>
+    <p class="cc-message">{{ message }}</p>
+
+    <div class="cc-actions">
+      <button class="btn ghost" type="button" (click)="onCancel()" [disabled]="loading">
+        {{ cancelLabel }}
+      </button>
+      <button class="btn danger" type="button" (click)="onConfirm()" [disabled]="loading">
+        {{ loading ? 'Submitting…' : confirmLabel }}
+      </button>
+    </div>
+  </div>
+</div>

@@ -1,5 +1,7 @@
 using APLabApp.API;
+using APLabApp.API.Hubs;
 using APLabApp.API.Infrastructure;
+using APLabApp.Bll.Services;
 using APLabApp.BLL.Auth;
 using APLabApp.BLL.Feedbacks;
 using APLabApp.BLL.Seasons;
@@ -36,19 +38,24 @@ var validAudiences = new[]
 .Distinct()
 .ToArray();
 
-builder.Services.AddDbContext<AppDbContext>(o =>
-    o.UseNpgsql(builder.Configuration.GetConnectionString("APDB")));
+builder.Services.AddScoped<RealtimeNotificationsInterceptor>();
+
+builder.Services.AddDbContext<AppDbContext>((sp, o) =>
+{
+    o.UseNpgsql(builder.Configuration.GetConnectionString("APDB"));
+    o.AddInterceptors(sp.GetRequiredService<RealtimeNotificationsInterceptor>());
+});
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddHttpClient<IKeycloakAdminService, KeycloakAdminService>();
 builder.Services.AddScoped<ISeasonRepository, SeasonRepository>();
 builder.Services.AddScoped<ISeasonService, SeasonService>();
-
 builder.Services.AddScoped<IFeedbackRepository, FeedbackRepository>();
 builder.Services.AddScoped<IFeedbackService, FeedbackService>();
-
 builder.Services.AddScoped<IGradeRepository, GradeRepository>();
+builder.Services.AddScoped<IDeleteRequestRepository, DeleteRequestRepository>();
+builder.Services.AddScoped<IDeleteRequestService, DeleteRequestService>();
 
 builder.Services.AddControllers();
 builder.Services.AddProblemDetails();
@@ -85,6 +92,18 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
+
+var corsOrigins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? new[] { "http://localhost:4200" };
+builder.Services.AddCors(o =>
+{
+    o.AddPolicy("frontend", p =>
+        p.WithOrigins(corsOrigins)
+         .AllowAnyHeader()
+         .AllowAnyMethod()
+         .AllowCredentials());
+});
+
+builder.Services.AddSignalR();
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -133,6 +152,14 @@ builder.Services
                 var roles = string.Join(",", identity.Claims.Where(c => c.Type == "roles").Select(c => c.Value));
                 Console.WriteLine($"[JWT] Token OK for sub={sub} roles=[{roles}]");
                 return Task.CompletedTask;
+            },
+            OnMessageReceived = ctx =>
+            {
+                var accessToken = ctx.Request.Query["access_token"];
+                var path = ctx.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/notifications"))
+                    ctx.Token = accessToken;
+                return Task.CompletedTask;
             }
         };
     });
@@ -153,9 +180,11 @@ if (app.Environment.IsDevelopment())
 
 app.UseExceptionHandler();
 app.UseHttpsRedirection();
+app.UseCors("frontend");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<NotificationsHub>("/hubs/notifications");
 app.Run();
 
 static IEnumerable<string> ExtractRolesFromObject(object? obj, string rolesPropertyName)

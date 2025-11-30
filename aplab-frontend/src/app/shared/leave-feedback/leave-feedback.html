@@ -1,4 +1,4 @@
-<div class="lf-backdrop" (click)="onCancel()">
+<div class="lf-backdrop" (click)="onCancel()" [class.lf-disabled]="showConfirm">
   <div class="lf-modal" (click)="$event.stopPropagation()">
     <h3 class="lf-title">Leave feedback</h3>
 
@@ -87,3 +87,14 @@
     </div>
   </div>
 </div>
+
+<app-confirm-create
+  *ngIf="showConfirm"
+  [title]="'Are you sure?'"
+  [message]="'You won\'t be able to delete this feedback after.'"
+  [confirmLabel]="'Yes'"
+  [cancelLabel]="'No'"
+  [loading]="saving"
+  (confirm)="onConfirmCreate()"
+  (cancel)="onCancelConfirm()">
+</app-confirm-create>

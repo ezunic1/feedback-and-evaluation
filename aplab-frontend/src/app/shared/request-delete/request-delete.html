@@ -1,0 +1,38 @@
+<div class="lf-backdrop" (click)="onCancel()" [class.lf-disabled]="showConfirm" *ngIf="open">
+  <div class="lf-modal" (click)="$event.stopPropagation()">
+    <h3 class="lf-title">Request delete</h3>
+    <div class="lf-form">
+      <div class="lf-field-group">
+        <label class="lf-label" for="reason">Reason</label>
+        <textarea
+          id="reason"
+          class="lf-textarea"
+          rows="5"
+          [(ngModel)]="reason">
+        </textarea>
+      </div>
+    </div>
+
+    <p class="lf-error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+    <div class="lf-actions">
+      <button class="btn ghost" type="button" (click)="onCancel()">
+        Cancel
+      </button>
+      <button class="btn primary" type="button" (click)="onSubmit()" [disabled]="saving || !reason.trim()">
+        {{ saving ? 'Submitting…' : 'Submit' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<app-confirm-create
+  *ngIf="showConfirm"
+  [title]="'Are you sure?'"
+  [message]="'Your delete request will be sent to the admin.'"
+  [confirmLabel]="'Yes'"
+  [cancelLabel]="'No'"
+  [loading]="saving"
+  (confirm)="onConfirmCreate()"
+  (cancel)="onCancelConfirm()">
+</app-confirm-create>

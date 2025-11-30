@@ -1,6 +1,142 @@
+<app-navbar></app-navbar>
+
 <div class="wrap">
-  <h2 class="title">All feedbacks</h2>
-  <p class="muted">
-    za napraviti
-  </p>
+  <div class="users-card">
+    <div class="card-header">
+      <h2 class="card-title">All feedbacks</h2>
+    </div>
+
+    <ui-spinner *ngIf="loading" class="section-spinner" [size]="25" [thickness]="2"></ui-spinner>
+
+    <div class="filters">
+      <label class="lbl">
+        <span>Season</span>
+        <select class="input" [(ngModel)]="selectedSeasonId" (ngModelChange)="onSeasonChange()">
+          <option *ngFor="let s of seasonsVm" [ngValue]="s.id">{{ s.name || 'Season' }}</option>
+        </select>
+      </label>
+
+      <label class="lbl">
+        <span>Type</span>
+        <select class="input" [(ngModel)]="type" (ngModelChange)="onTypeChange()">
+          <option value="all">All</option>
+          <option value="i2i">Intern → Intern</option>
+          <option value="i2m">Intern → Mentor</option>
+          <option value="m2i">Mentor → Intern</option>
+        </select>
+      </label>
+
+      <label class="lbl" *ngIf="months?.length">
+        <span>Month</span>
+        <select class="input" [(ngModel)]="selectedMonth" (ngModelChange)="onMonthChange()">
+          <option [ngValue]="'all'">All months</option>
+          <option *ngFor="let m of months" [ngValue]="m.index">Month {{ m.index }}</option>
+        </select>
+      </label>
+    </div>
+
+    <div *ngIf="loading" class="skeleton"></div>
+
+    <div class="table-wrap" *ngIf="!loading && rows?.length; else empty">
+      <table>
+        <thead>
+          <tr>
+            <th>From</th>
+            <th>To</th>
+            <th (click)="changeSortDate()" class="sortable">
+              Created <span class="sort">{{ sortDir==='asc' ? '↑' : '↓' }}</span>
+            </th>
+            <th class="right"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <ng-container *ngFor="let f of rows">
+            <tr (click)="toggle(f.id)" [class.expanded-row]="isExpanded(f.id)">
+              <td>{{ nameOf(f.senderUserId) || '—' }}</td>
+              <td>{{ nameOf(f.receiverUserId) || '—' }}</td>
+              <td class="muted">{{ f.createdAtUtc | date:'medium' }}</td>
+              <td class="right details-cell">
+                <span class="details-text">
+                  {{ isExpanded(f.id) ? 'Hide details' : 'Show details' }}
+                  <span class="chev" [class.up]="isExpanded(f.id)">⌃</span>
+                </span>
+              </td>
+            </tr>
+
+            <tr class="details-row" *ngIf="isExpanded(f.id)">
+              <td colspan="4">
+                <div class="details-panel">
+                  <div class="grades" *ngIf="hasGrades(f)">
+                    <div class="section-title">Grades</div>
+                    <div class="grades-grid">
+                      <div class="grade-item">
+                        <span class="grade-label">Career Skills</span>
+                        <span class="grade-value">{{ f.grade?.careerSkills }}/5</span>
+                      </div>
+                      <div class="grade-item">
+                        <span class="grade-label">Communication</span>
+                        <span class="grade-value">{{ f.grade?.communication }}/5</span>
+                      </div>
+                      <div class="grade-item">
+                        <span class="grade-label">Collaboration</span>
+                        <span class="grade-value">{{ f.grade?.collaboration }}/5</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="comment-block">
+                    <div class="comment-row">
+                      <div class="section-title">Comment</div>
+
+                      <button
+                        *ngIf="role === 'mentor'"
+                        class="reqdel-btn"
+                        (click)="openRequest(f.id, $event)">
+                        Request delete
+                      </button>
+
+                      <button
+                        *ngIf="role === 'admin'"
+                        class="delete-btn"
+                        type="button"
+                        [disabled]="confirmLoading && confirmTargetId === f.id"
+                        (click)="openDeleteConfirm(f.id, $event)">
+                        {{ confirmLoading && confirmTargetId === f.id ? 'Deleting…' : 'Delete' }}
+                      </button>
+                    </div>
+
+                    <p class="comment-text">{{ f.comment }}</p>
+                  </div>
+                </div>
+
+                <app-request-delete
+                  *ngIf="openedRequestId === f.id"
+                  [open]="true"
+                  [feedbackId]="f.id"
+                  (closed)="onRequestClosed($event)">
+                </app-request-delete>
+              </td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pager" *ngIf="!loading && totalPages > 1">
+      <button class="page-btn" *ngFor="let p of pages" [class.active]="p===page" (click)="pageClick(p)">{{ p }}</button>
+    </div>
+
+    <ng-template #empty><p class="muted">No feedback for selected filter.</p></ng-template>
+  </div>
 </div>
+
+<app-confirm-delete
+  *ngIf="confirmOpen"
+  [title]="confirmTitle"
+  [message]="confirmMessage"
+  [confirmLabel]="confirmLabel"
+  [cancelLabel]="cancelLabel"
+  [loading]="confirmLoading"
+  (confirm)="onConfirmDelete()"
+  (cancel)="onCancelDelete()">
+</app-confirm-delete>

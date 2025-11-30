@@ -11,7 +11,9 @@
   <div class="col">
     <app-intern-grades [seasonId]="selectedSeasonId"></app-intern-grades>
 
-    <button class="all-feedbacks-btn" routerLink="/all-feedbacks">
+    <button class="all-feedbacks-btn"
+            [routerLink]="['/all-feedbacks']"
+            [queryParams]="{ seasonId: selectedSeasonId }">
       <span class="all-feedbacks-icon">
         <svg viewBox="0 0 64 64" aria-hidden="true">
           <rect x="10" y="6" rx="6" ry="6" width="32" height="44"></rect>

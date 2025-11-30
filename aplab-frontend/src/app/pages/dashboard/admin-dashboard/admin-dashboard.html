@@ -1,36 +1,15 @@
 <app-navbar></app-navbar>
+
 <div class="wrap">
   <div class="toolbar">
     <h2 class="title">Admin Dashboard</h2>
   </div>
 
   <div class="tabs-grid" role="tablist" aria-label="Sections">
-    <button
-      class="tablink"
-      [class.active]="activeTab==='seasons'"
-      role="tab"
-      [attr.aria-selected]="activeTab==='seasons'"
-      (click)="activeTab='seasons'">
-      Seasons
-    </button>
-
-    <button
-      class="tablink"
-      [class.active]="activeTab==='users'"
-      role="tab"
-      [attr.aria-selected]="activeTab==='users'"
-      (click)="activeTab='users'">
-      Users
-    </button>
-
-    <button
-      class="tablink"
-      [class.active]="activeTab==='feedbacks'"
-      role="tab"
-      [attr.aria-selected]="activeTab==='feedbacks'"
-      (click)="activeTab='feedbacks'">
-      Feedbacks
-    </button>
+    <button class="tablink" [class.active]="activeTab==='seasons'" role="tab" [attr.aria-selected]="activeTab==='seasons'" (click)="activeTab='seasons'">Seasons</button>
+    <button class="tablink" [class.active]="activeTab==='users'" role="tab" [attr.aria-selected]="activeTab==='users'" (click)="activeTab='users'">Users</button>
+    <button class="tablink" [class.active]="activeTab==='feedbacks'" role="tab" [attr.aria-selected]="activeTab==='feedbacks'" (click)="activeTab='feedbacks'">Feedbacks</button>
+    <button class="tablink" [class.active]="activeTab==='requests'" role="tab" [attr.aria-selected]="activeTab==='requests'" (click)="activeTab='requests'">Requests</button>
   </div>
 
   <section class="card" *ngIf="activeTab==='seasons'" role="tabpanel">
@@ -45,28 +24,14 @@
           <circle cx="11" cy="11" r="7"></circle>
           <line x1="16.65" y1="16.65" x2="21" y2="21"></line>
         </svg>
-        <input
-          class="search-input"
-          type="search"
-          placeholder="Search seasons by name"
-          [(ngModel)]="qSeason"
-          (ngModelChange)="applySeasonFilters()"
-          aria-label="Search seasons by name">
-        <button
-          class="clear"
-          *ngIf="qSeason"
-          (click)="qSeason=''; applySeasonFilters()"
-          aria-label="Clear search"
-          type="button"></button>
+        <input class="search-input" type="search" placeholder="Search seasons by name"
+               [(ngModel)]="qSeason" (ngModelChange)="applySeasonFilters()" aria-label="Search seasons by name">
+        <button class="clear" *ngIf="qSeason" (click)="qSeason=''; applySeasonFilters()" aria-label="Clear search" type="button"></button>
       </div>
     </div>
 
     <div *ngIf="loadingSeasons" class="skeleton"></div>
-    <app-season-list
-      *ngIf="!loadingSeasons"
-      [seasons]="filteredSeasons"
-      (open)="openSeason($event)">
-    </app-season-list>
+    <app-season-list *ngIf="!loadingSeasons" [seasons]="filteredSeasons" (open)="openSeason($event)"></app-season-list>
   </section>
 
   <section class="card" *ngIf="activeTab==='users'" role="tabpanel">
@@ -74,7 +39,6 @@
       <h3 class="card-title">Users</h3>
       <button class="btn accent" type="button" (click)="addUser()">+ User</button>
     </div>
-
     <app-users-table (open)="openUser($event)"></app-users-table>
   </section>
 
@@ -82,7 +46,90 @@
     <div class="section-head">
       <h3 class="card-title">Feedbacks</h3>
     </div>
-
     <app-feedback-list></app-feedback-list>
   </section>
+
+  <section class="card" *ngIf="activeTab==='requests'" role="tabpanel">
+    <div class="section-head">
+      <h3 class="card-title">Delete Requests</h3>
+    </div>
+
+    <div *ngIf="loadingRequests" class="skeleton"></div>
+
+    <div class="req-list" *ngIf="!loadingRequests && requests?.length; else noReqs">
+      <div class="req-card" *ngFor="let r of requests" (click)="toggleRequest(r.id)" [class.expanded]="isReqExpanded(r.id)">
+        <div class="req-head">
+          <div class="req-party">
+            <div class="req-label">Requested by</div>
+            <div class="req-name">{{ nameOf(r.senderUserId) || '—' }}</div>
+          </div>
+
+          <div class="req-reason">
+            <div class="req-label">Reason</div>
+            <div class="req-reason-text one-line">{{ r.reason }}</div>
+          </div>
+
+          <div class="req-actions-inline" *ngIf="isAdmin" (click)="$event.stopPropagation()">
+            <button
+              class="icon-btn approve"
+              type="button"
+              (click)="openConfirm('approve', r, $event)"
+              [disabled]="loadingOf(r.id)==='approve' || loadingOf(r.id)==='reject'">
+              <svg viewBox="0 0 24 24" class="icon" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="8 12.5 11 15.5 16 9"></polyline>
+              </svg>
+            </button>
+
+            <button
+              class="icon-btn reject"
+              type="button"
+              (click)="openConfirm('reject', r, $event)"
+              [disabled]="loadingOf(r.id)==='approve' || loadingOf(r.id)==='reject'">
+              <svg viewBox="0 0 24 24" class="icon" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="9" y1="9" x2="15" y2="15"></line>
+                <line x1="15" y1="9" x2="9" y2="15"></line>
+              </svg>
+            </button>
+          </div>
+
+          <div class="req-meta">
+            <div class="req-label">Created</div>
+            <div class="req-date">{{ r.createdAtUtc | date:'medium' }}</div>
+            <span class="chev" [class.up]="isReqExpanded(r.id)">⌃</span>
+          </div>
+        </div>
+
+        <div class="req-details" *ngIf="isReqExpanded(r.id)">
+          <div class="req-section-title">Feedback</div>
+
+          <div (click)="$event.stopPropagation()">
+            <div *ngIf="!r.fbLoaded" class="fb-loading">Loading feedback…</div>
+            <div *ngIf="r.fbLoaded && !r.feedback" class="fb-missing">Feedback not available.</div>
+
+            <app-feedback-card
+              *ngIf="r.fbLoaded && r.feedback"
+              [feedback]="r.feedback"
+              [fromName]="nameOf(r.feedback?.senderUserId)"
+              [toName]="nameOf(r.feedback?.receiverUserId)">
+            </app-feedback-card>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <ng-template #noReqs><p class="muted">No delete requests.</p></ng-template>
+  </section>
 </div>
+
+<app-confirm-delete
+  *ngIf="confirmOpen"
+  [title]="confirmTitle"
+  [message]="confirmMessage"
+  [confirmLabel]="confirmLabel"
+  [cancelLabel]="confirmCancelLabel"
+  [loading]="confirmLoading"
+  (confirm)="onConfirmModal()"
+  (cancel)="onCancelModal()">
+</app-confirm-delete>

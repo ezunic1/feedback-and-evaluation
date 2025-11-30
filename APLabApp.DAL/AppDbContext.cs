@@ -11,6 +11,7 @@ namespace APLabApp.Dal
         public DbSet<Season> Seasons => Set<Season>();
         public DbSet<Feedback> Feedbacks => Set<Feedback>();
         public DbSet<Grade> Grades => Set<Grade>();
+        public DbSet<DeleteRequest> DeleteRequests => Set<DeleteRequest>();
 
         protected override void OnModelCreating(ModelBuilder b)
         {
@@ -80,6 +81,28 @@ namespace APLabApp.Dal
                     .WithOne(f => f.Grade)
                     .HasForeignKey<Grade>(x => x.FeedbackId)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            b.Entity<DeleteRequest>(e =>
+            {
+                e.ToTable("delete_requests");
+
+                e.Property(x => x.Reason)
+                    .IsRequired()
+                    .HasMaxLength(2000);
+
+                e.Property(x => x.CreatedAtUtc)
+                    .IsRequired();
+
+                e.HasOne(x => x.Feedback)
+                    .WithMany()
+                    .HasForeignKey(x => x.FeedbackId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasOne(x => x.SenderUser)
+                    .WithMany()
+                    .HasForeignKey(x => x.SenderUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
         }
     }

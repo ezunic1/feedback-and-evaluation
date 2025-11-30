@@ -1,0 +1,23 @@
+<div class="toast-wrap">
+  <div
+    class="toast"
+    *ngFor="let t of (toasts$ | async)"
+    (click)="onToastClick(t)"
+    [class.clickable]="t.actions?.length"
+    role="button"
+    tabindex="0"
+    (keydown.enter)="onToastClick(t)"
+    (keydown.space)="onToastClick(t)"
+  >
+    <div class="toast-header">
+      <div class="dot"
+           [class.info]="t.level==='info'"
+           [class.success]="t.level==='success'"
+           [class.warning]="t.level==='warning'"
+           [class.danger]="t.level==='danger'"></div>
+      <h4 class="title">{{ t.title }}</h4>
+      <button type="button" class="x" (click)="dismiss(t.id); $event.stopPropagation()">×</button>
+    </div>
+    <div class="toast-body" *ngIf="t.message">{{ t.message }}</div>
+  </div>
+</div>

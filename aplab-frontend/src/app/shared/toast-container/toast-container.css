@@ -1,0 +1,82 @@
+.toast-wrap {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 3000;
+}
+
+.toast {
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  background: #fff;
+  border: 1px solid #e6eaec;
+  border-radius: 14px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.08);
+  padding: 12px 12px 10px;
+  color: #2f2f2f;
+  font-family: Segoe UI, Tahoma, Geneva, Verdana, sans-serif;
+  transition: transform .08s ease, box-shadow .08s ease, border-color .08s ease, background-color .08s ease;
+  outline: none;
+}
+
+.toast.clickable {
+  cursor: pointer;
+}
+
+.toast.clickable:hover {
+  box-shadow: 0 10px 44px rgba(0,0,0,.10);
+  border-color: #dfe4e7;
+  transform: translateY(-1px);
+  background-color: #fcfdfc;
+}
+
+.toast.clickable:active {
+  transform: translateY(0);
+  box-shadow: 0 6px 30px rgba(0,0,0,.08);
+}
+
+.toast:focus-visible {
+  box-shadow: 0 0 0 3px #c1d72d55, 0 8px 40px rgba(0,0,0,.08);
+  border-color: #c1d72d;
+}
+
+.toast-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.title {
+  margin: 0;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: .2px;
+  flex: 1;
+}
+
+.x {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+.toast-body {
+  font-size: 13px;
+  margin: 8px 2px 6px;
+  color: #444;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 6px;
+  background: #c1d72d;
+}
+

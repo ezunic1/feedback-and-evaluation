@@ -14,6 +14,7 @@
 
 		<!-- OpenAPI helper -->
 		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.10" />
+		<PackageReference Include="Microsoft.AspNetCore.SignalR.Common" Version="10.0.0" />
 
 		<!-- EF Core RUNTIME (obavezno za AddDbContext i registraciju konteksta) -->
 		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.10" />

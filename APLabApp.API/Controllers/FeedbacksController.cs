@@ -188,6 +188,49 @@ namespace APLabApp.Api.Controllers
             return Ok(dto);
         }
 
+        [Authorize(Roles = "admin,mentor")]
+        [HttpGet("search")]
+        public async Task<ActionResult<APLabApp.BLL.PagedResult<FeedbackDto>>> Search(
+            [FromQuery] int seasonId,
+            [FromQuery] string? type = "all",
+            [FromQuery] string? sortDir = "desc",
+            [FromQuery] int? monthIndex = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            CancellationToken ct = default)
+        {
+            var role = ResolveRole(User);
+            if (role == "admin")
+            {
+                var resA = await _service.SearchForAdminAsync(seasonId, type, sortDir, monthIndex, page, pageSize, ct);
+                return Ok(resA);
+            }
+
+            if (role == "mentor")
+            {
+                var sub = User.FindFirstValue("sub") ?? User.FindFirstValue("sid");
+                if (!Guid.TryParse(sub, out var keycloakId))
+                    return Unauthorized();
+
+                var me = await _users.GetByKeycloakIdAsync(keycloakId, ct);
+                if (me is null)
+                    return Unauthorized();
+
+                var resM = await _service.SearchForMentorAsync(me.Id, seasonId, type, sortDir, monthIndex, page, pageSize, ct);
+                return Ok(resM);
+            }
+
+            return Forbid();
+        }
+
+        [Authorize(Roles = "admin,mentor")]
+        [HttpGet("season/{seasonId:int}/months")]
+        public async Task<ActionResult<IReadOnlyList<MonthSpanDto>>> GetSeasonMonths(int seasonId, CancellationToken ct = default)
+        {
+            var spans = await _service.GetSeasonMonthSpansAsync(seasonId, ct);
+            return Ok(spans);
+        }
+
         private static string ResolveRole(ClaimsPrincipal principal)
         {
             var allRoles = principal.Claims

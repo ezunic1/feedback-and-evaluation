@@ -459,6 +459,154 @@ namespace APLabApp.BLL.Feedbacks
             return new MentorMonthlyAveragesPageDto(season.Id, monthIndex, slotStart, slotEnd, page, pageSize, total, totalPages, pageItems);
         }
 
+        public async Task<APLabApp.BLL.PagedResult<FeedbackDto>> SearchForAdminAsync(int seasonId, string? type, string? sortDir, int? monthIndex, int page, int pageSize, CancellationToken ct)
+        {
+            if (page < 1) page = 1;
+            if (pageSize < 1) pageSize = 10;
+
+            var q = _feedbacks.Query()
+                .AsNoTracking()
+                .Include(f => f.Grade)
+                .Include(f => f.Season)
+                .Where(f => f.SeasonId == seasonId);
+
+            q = ApplyTypeFilter(q, type);
+
+            if (monthIndex.HasValue && monthIndex.Value > 0)
+            {
+                var spans = await GetSeasonMonthSpansAsync(seasonId, ct);
+                if (spans.Count > 0)
+                {
+                    var idx = monthIndex.Value > spans.Count ? spans.Count : monthIndex.Value;
+                    var span = spans[idx - 1];
+                    q = q.Where(f => f.CreatedAtUtc >= span.StartUtc && f.CreatedAtUtc < span.EndUtc);
+                }
+            }
+
+            var sd = (sortDir ?? "desc").Trim().ToLowerInvariant();
+            q = sd == "asc"
+                ? q.OrderBy(f => f.CreatedAtUtc).ThenBy(f => f.Id)
+                : q.OrderByDescending(f => f.CreatedAtUtc).ThenByDescending(f => f.Id);
+
+            var total = await q.CountAsync(ct);
+            var totalPages = total == 0 ? 0 : (int)Math.Ceiling(total / (double)pageSize);
+            if (totalPages == 0) page = 1;
+            else if (page > totalPages) page = totalPages;
+
+            var skip = (page - 1) * pageSize;
+
+            var items = await q.Skip(skip).Take(pageSize)
+                .Select(f => new FeedbackDto(
+                    f.Id,
+                    f.SeasonId,
+                    f.SenderUserId,
+                    f.ReceiverUserId,
+                    f.Comment,
+                    f.CreatedAtUtc,
+                    f.Grade == null ? null : new GradeDto(f.Grade.CareerSkills, f.Grade.Communication, f.Grade.Collaboration)))
+                .ToListAsync(ct);
+
+            return new APLabApp.BLL.PagedResult<FeedbackDto>(items, page, pageSize, total, totalPages);
+        }
+
+        public async Task<APLabApp.BLL.PagedResult<FeedbackDto>> SearchForMentorAsync(Guid mentorUserId, int seasonId, string? type, string? sortDir, int? monthIndex, int page, int pageSize, CancellationToken ct)
+        {
+            if (page < 1) page = 1;
+            if (pageSize < 1) pageSize = 10;
+
+            var season = await _seasons.GetByIdAsync(seasonId, ct);
+            if (season is null)
+                throw new InvalidOperationException("Season not found.");
+            if (season.MentorId != mentorUserId)
+                throw new InvalidOperationException("Forbidden for this season.");
+
+            var q = _feedbacks.Query()
+                .AsNoTracking()
+                .Include(f => f.Grade)
+                .Include(f => f.Season)
+                .Where(f => f.SeasonId == seasonId && f.Season.MentorId == mentorUserId);
+
+            q = ApplyTypeFilter(q, type);
+
+            if (monthIndex.HasValue && monthIndex.Value > 0)
+            {
+                var spans = await GetSeasonMonthSpansAsync(seasonId, ct);
+                if (spans.Count > 0)
+                {
+                    var idx = monthIndex.Value > spans.Count ? spans.Count : monthIndex.Value;
+                    var span = spans[idx - 1];
+                    q = q.Where(f => f.CreatedAtUtc >= span.StartUtc && f.CreatedAtUtc < span.EndUtc);
+                }
+            }
+
+            var sd = (sortDir ?? "desc").Trim().ToLowerInvariant();
+            q = sd == "asc"
+                ? q.OrderBy(f => f.CreatedAtUtc).ThenBy(f => f.Id)
+                : q.OrderByDescending(f => f.CreatedAtUtc).ThenByDescending(f => f.Id);
+
+            var total = await q.CountAsync(ct);
+            var totalPages = total == 0 ? 0 : (int)Math.Ceiling(total / (double)pageSize);
+            if (totalPages == 0) page = 1;
+            else if (page > totalPages) page = totalPages;
+
+            var skip = (page - 1) * pageSize;
+
+            var items = await q.Skip(skip).Take(pageSize)
+                .Select(f => new FeedbackDto(
+                    f.Id,
+                    f.SeasonId,
+                    f.SenderUserId,
+                    f.ReceiverUserId,
+                    f.Comment,
+                    f.CreatedAtUtc,
+                    f.Grade == null ? null : new GradeDto(f.Grade.CareerSkills, f.Grade.Communication, f.Grade.Collaboration)))
+                .ToListAsync(ct);
+
+            return new APLabApp.BLL.PagedResult<FeedbackDto>(items, page, pageSize, total, totalPages);
+        }
+
+        public async Task<IReadOnlyList<MonthSpanDto>> GetSeasonMonthSpansAsync(int seasonId, CancellationToken ct)
+        {
+            var season = await _seasons.GetByIdAsync(seasonId, ct);
+            if (season is null)
+                throw new InvalidOperationException("Season not found.");
+
+            var now = DateTime.UtcNow;
+            var start = new DateTime(season.StartDate.Year, season.StartDate.Month, season.StartDate.Day, 0, 0, 0, DateTimeKind.Utc);
+            var end = season.EndDate < now ? season.EndDate : now;
+
+            var result = new List<MonthSpanDto>();
+            if (end <= start)
+                return result;
+
+            var cur = start;
+            var idx = 1;
+            while (cur < end)
+            {
+                var next = cur.AddMonths(1);
+                var spanEnd = next < end ? next : end;
+                result.Add(new MonthSpanDto(idx++, cur, spanEnd));
+                cur = next;
+            }
+
+            if (result.Count == 0)
+                result.Add(new MonthSpanDto(1, start, end));
+
+            return result;
+        }
+
+        private static IQueryable<Feedback> ApplyTypeFilter(IQueryable<Feedback> q, string? type)
+        {
+            var t = (type ?? "all").Trim().ToLowerInvariant();
+            if (t == "i2i")
+                q = q.Where(f => f.Grade == null && f.SenderUserId != f.Season.MentorId && f.ReceiverUserId != f.Season.MentorId);
+            else if (t == "i2m")
+                q = q.Where(f => f.Grade == null && f.ReceiverUserId == f.Season.MentorId);
+            else if (t == "m2i")
+                q = q.Where(f => f.Grade != null && f.SenderUserId == f.Season.MentorId);
+            return q;
+        }
+
         private static void ValidateScore(int score, string paramName)
         {
             if (score < 1 || score > 5)

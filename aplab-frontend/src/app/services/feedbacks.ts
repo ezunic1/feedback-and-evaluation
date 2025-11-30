@@ -74,6 +74,20 @@ export interface MentorMonthlyAveragesPageDto {
   items: MentorInternAverageRowDto[];
 }
 
+export interface PagedResult<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface MonthSpanDto {
+  index: number;
+  startUtc: string;
+  endUtc: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class Feedbacks {
   private http = inject(HttpClient);
@@ -131,6 +145,25 @@ export class Feedbacks {
       pageSize: opts?.pageSize ?? 10
     };
     return this.http.get<MentorMonthlyAveragesPageDto>(`${this.base}/mentor/averages`, { params });
+  }
+
+  getSeasonMonths(seasonId: number): Observable<MonthSpanDto[]> {
+    return this.http.get<MonthSpanDto[]>(`${this.base}/season/${seasonId}/months`);
+  }
+
+  search(
+    seasonId: number,
+    opts?: { type?: 'all'|'i2i'|'i2m'|'m2i'; sortDir?: 'asc'|'desc'; page?: number; pageSize?: number; monthIndex?: number }
+  ): Observable<PagedResult<FeedbackDto>> {
+    const params: any = {
+      seasonId,
+      type: opts?.type ?? 'all',
+      sortDir: opts?.sortDir ?? 'desc',
+      page: opts?.page ?? 1,
+      pageSize: opts?.pageSize ?? 10
+    };
+    if (opts?.monthIndex != null) params.monthIndex = opts.monthIndex;
+    return this.http.get<PagedResult<FeedbackDto>>(`${this.base}/search`, { params });
   }
 
   createAsIntern(req: CreateInternFeedbackRequest): Observable<FeedbackDto> {

@@ -121,7 +121,6 @@ export class FeedbackList implements OnInit {
       this.seasonsApi.getAll().subscribe({
         next: ss => {
           const allVm = (ss as any[]).map(x => this.toVm(x));
-
           if (this.role === 'mentor') {
             const user = this.auth.user();
             const uid = (this.auth.userId() ?? '').toLowerCase().trim();
@@ -129,16 +128,13 @@ export class FeedbackList implements OnInit {
             this.seasonsVm = allVm.filter(s => {
               const mid = (s.mentorUserId ?? '').toLowerCase().trim();
               const mname = (s.mentorName ?? '').toLowerCase().trim();
-
               const byId = uid && mid === uid;
               const byName = myName && mname === myName;
-
               return byId || byName;
             });
           } else {
             this.seasonsVm = allVm;
           }
-
           this.loadingSeasons = false;
           resolve();
         },
@@ -225,9 +221,7 @@ export class FeedbackList implements OnInit {
       this.splitLists();
       return;
     }
-
     this.loadingFeedbacks = true;
-
     if (this.role === 'admin') {
       this.feedbackApi.getForAdmin(1, this.selectedSeasonId).subscribe({
         next: list => {
@@ -243,7 +237,6 @@ export class FeedbackList implements OnInit {
       });
       return;
     }
-
     if (this.role === 'mentor') {
       this.feedbackApi.getMine(1).subscribe({
         next: list => {
@@ -260,7 +253,6 @@ export class FeedbackList implements OnInit {
       });
       return;
     }
-
     this.allFeedbacks = [];
     this.splitLists();
     this.loadingFeedbacks = false;
