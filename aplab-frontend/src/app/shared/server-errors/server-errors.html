@@ -12,9 +12,7 @@
       <ul class="list" *ngIf="!p.detail && allErrors.length">
         <li *ngFor="let e of allErrors">{{ e }}</li>
       </ul>
-      <div class="meta" *ngIf="p.status || p.traceId">
-        <span *ngIf="p.status">Status: {{ p.status }}</span>
-      </div>
+    
     </div>
   </ng-template>
 </ng-container>

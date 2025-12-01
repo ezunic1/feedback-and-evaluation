@@ -24,7 +24,7 @@ export class App implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     if (isPlatformBrowser(this.platformId)) {
-      queueMicrotask(() => this.notifications.connect('')); 
+      queueMicrotask(() => this.notifications.connect('https://localhost:7158'));
 
       this.subs.push(
         this.notifications.newFeedback$.subscribe((p: NewFeedbackEvent) => {

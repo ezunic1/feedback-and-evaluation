@@ -16,8 +16,9 @@ namespace APLabApp.API.Infrastructure
     {
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly IHubContext<NotificationsHub> _hub;
-        private readonly List<(int FeedbackId, int SeasonId, Guid ReceiverUserId, DateTime CreatedAtUtc)> _createdFeedbacks = new();
-        private readonly List<(int DeleteRequestId, int FeedbackId, string Reason, DateTime CreatedAtUtc)> _createdDeleteRequests = new();
+
+        private readonly List<Dal.Entities.Feedback> _addedFeedbacks = new();
+        private readonly List<Dal.Entities.DeleteRequest> _addedDeleteRequests = new();
 
         public RealtimeNotificationsInterceptor(IServiceScopeFactory scopeFactory, IHubContext<NotificationsHub> hub)
         {
@@ -27,13 +28,13 @@ namespace APLabApp.API.Infrastructure
 
         public override InterceptionResult<int> SavingChanges(DbContextEventData eventData, InterceptionResult<int> result)
         {
-            CaptureNewEntities(eventData.Context);
+            Capture(eventData.Context);
             return base.SavingChanges(eventData, result);
         }
 
         public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
         {
-            CaptureNewEntities(eventData.Context);
+            Capture(eventData.Context);
             return base.SavingChangesAsync(eventData, result, cancellationToken);
         }
 
@@ -49,35 +50,35 @@ namespace APLabApp.API.Infrastructure
             return base.SavedChangesAsync(eventData, result, cancellationToken);
         }
 
-        private void CaptureNewEntities(DbContext? ctx)
+        private void Capture(DbContext? ctx)
         {
             if (ctx is not AppDbContext db) return;
 
-            var addedF = db.ChangeTracker.Entries<Dal.Entities.Feedback>()
-                .Where(e => e.State == EntityState.Added)
-                .Select(e => (e.Entity.Id, e.Entity.SeasonId, e.Entity.ReceiverUserId, e.Entity.CreatedAtUtc));
+            _addedFeedbacks.Clear();
+            _addedDeleteRequests.Clear();
 
-            var addedD = db.ChangeTracker.Entries<Dal.Entities.DeleteRequest>()
-                .Where(e => e.State == EntityState.Added)
-                .Select(e => (e.Entity.Id, e.Entity.FeedbackId, e.Entity.Reason, e.Entity.CreatedAtUtc));
+            foreach (var e in db.ChangeTracker.Entries<Dal.Entities.Feedback>().Where(x => x.State == EntityState.Added))
+                _addedFeedbacks.Add(e.Entity);
 
-            foreach (var x in addedF)
-                _createdFeedbacks.Add((x.Id, x.SeasonId, x.ReceiverUserId, x.CreatedAtUtc));
-
-            foreach (var x in addedD)
-                _createdDeleteRequests.Add((x.Id, x.FeedbackId, x.Reason, x.CreatedAtUtc));
+            foreach (var e in db.ChangeTracker.Entries<Dal.Entities.DeleteRequest>().Where(x => x.State == EntityState.Added))
+                _addedDeleteRequests.Add(e.Entity);
         }
 
         private async Task DispatchAsync(CancellationToken ct)
         {
+            var feedbacks = _addedFeedbacks.ToArray();
+            var deleteReqs = _addedDeleteRequests.ToArray();
+            _addedFeedbacks.Clear();
+            _addedDeleteRequests.Clear();
+
             try
             {
-                if (_createdFeedbacks.Count > 0)
+                if (feedbacks.Length > 0)
                 {
                     using var scope = _scopeFactory.CreateScope();
                     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-                    var receiverIds = _createdFeedbacks.Select(f => f.ReceiverUserId).Distinct().ToArray();
+                    var receiverIds = feedbacks.Select(f => f.ReceiverUserId).Distinct().ToArray();
 
                     var map = await db.Users
                         .AsNoTracking()
@@ -85,27 +86,42 @@ namespace APLabApp.API.Infrastructure
                         .Select(u => new { u.Id, u.KeycloakId })
                         .ToDictionaryAsync(x => x.Id, x => x.KeycloakId, ct);
 
-                    foreach (var f in _createdFeedbacks)
+                    foreach (var f in feedbacks)
                     {
                         if (!map.TryGetValue(f.ReceiverUserId, out var kc)) continue;
-                        var payload = new { feedbackId = f.FeedbackId, seasonId = f.SeasonId, receiverUserId = f.ReceiverUserId, createdAtUtc = f.CreatedAtUtc };
-                        await _hub.Clients.Group($"kc:{kc}").SendAsync("newFeedback", payload, ct);
+
+                        var payload = new
+                        {
+                            feedbackId = f.Id,
+                            seasonId = f.SeasonId,
+                            senderUserId = f.SenderUserId,
+                            receiverUserId = f.ReceiverUserId,
+                            createdAtUtc = f.CreatedAtUtc
+                        };
+
+                        await _hub.Clients.Group($"kc:{kc}").SendAsync(NotificationEvents.NewFeedback, payload, ct);
                     }
                 }
 
-                if (_createdDeleteRequests.Count > 0)
+                if (deleteReqs.Length > 0)
                 {
-                    foreach (var dr in _createdDeleteRequests)
+                    foreach (var dr in deleteReqs)
                     {
-                        var payload = new { deleteRequestId = dr.DeleteRequestId, feedbackId = dr.FeedbackId, reason = dr.Reason, createdAtUtc = dr.CreatedAtUtc };
-                        await _hub.Clients.Group("role:admin").SendAsync("deleteRequestCreated", payload, ct);
+                        var payload = new
+                        {
+                            deleteRequestId = dr.Id,
+                            feedbackId = dr.FeedbackId,
+                            senderUserId = dr.SenderUserId,
+                            reason = dr.Reason,
+                            createdAtUtc = dr.CreatedAtUtc
+                        };
+
+                        await _hub.Clients.Group("role:admin").SendAsync(NotificationEvents.DeleteRequestCreated, payload, ct);
                     }
                 }
             }
-            finally
+            catch
             {
-                _createdFeedbacks.Clear();
-                _createdDeleteRequests.Clear();
             }
         }
     }

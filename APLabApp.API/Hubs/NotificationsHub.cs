@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.SignalR;
 
 namespace APLabApp.API.Hubs
 {
+  
+
     [Authorize]
     public class NotificationsHub : Hub
     {

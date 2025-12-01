@@ -1,6 +1,6 @@
 import { Injectable, inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { HubConnection, HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr';
+import { HubConnection, HubConnectionBuilder, HubConnectionState, LogLevel, HttpTransportType } from '@microsoft/signalr';
 import { Subject, Observable, of, take, timeout, catchError } from 'rxjs';
 import { Auth } from './auth';
 
@@ -20,14 +20,14 @@ export class Notifications {
     if (!isPlatformBrowser(this.platformId)) return;
     if (this.hub) return;
 
-    const base = (apiBase && apiBase.trim().length > 0)
-      ? apiBase.replace(/\/+$/, '')
-      : ''; // koristi proxy: /hubs/...
+    const base = (apiBase?.trim() || 'https://localhost:7062').replace(/\/+$/, '');
+    const url = `${base}/hubs/notifications`;
 
-    const url = `${base}/hubs/notifications`.replace(/([^:]\/)\/+/g, '$1');
     this.hub = new HubConnectionBuilder()
       .withUrl(url, {
         accessTokenFactory: () => this.auth.accessToken ?? '',
+        transport: HttpTransportType.WebSockets,
+        skipNegotiation: true,
         withCredentials: true
       })
       .withAutomaticReconnect()
@@ -38,6 +38,7 @@ export class Notifications {
       console.info('[SR] newFeedback', p);
       this.newFeedbackSubject.next(p);
     });
+
     this.hub.on('deleteRequestCreated', p => {
       console.info('[SR] deleteRequestCreated', p);
       this.deleteRequestCreatedSubject.next(p);
@@ -51,7 +52,11 @@ export class Notifications {
       if (!this.hub) return;
       console.info('[SR] starting hub to', url);
       this.hub.start()
-        .then(() => console.info('[SR] connected:', this.hub!.state))
+        .then(() => {
+          console.info('[SR] connected:', this.hub!.state);
+          // ako si dodao Ping() na backend hub:
+          // this.hub!.invoke('Ping').then(r => console.info('[SR] ping:', r)).catch(e => console.error('[SR] ping error', e));
+        })
         .catch(err => console.error('[SR] start error', err));
     };
 
