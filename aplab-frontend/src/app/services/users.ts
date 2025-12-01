@@ -1,6 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { map, Observable } from 'rxjs';
+import { catchError, throwError } from 'rxjs';
+import { extractProblem } from '../models/problem-details';
 
 export type Role = 'admin'|'mentor'|'intern'|'guest';
 export type SortBy = 'createdAt'|'name'|'email';
@@ -95,7 +97,9 @@ export class Users {
   }
 
   create(req: CreateUserRequest): Observable<UserDto> {
-    return this.http.post<UserDto>(this.base, req);
+    return this.http.post<UserDto>(this.base, req).pipe(
+      catchError(err => throwError(() => extractProblem(err)))
+    );
   }
 
   update(id: string, req: UpdateUserRequest): Observable<UserDto> {
@@ -105,4 +109,5 @@ export class Users {
   delete(id: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/${id}`);
   }
+  
 }

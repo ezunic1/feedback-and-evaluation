@@ -3,12 +3,16 @@ using APLabApp.API.Hubs;
 using APLabApp.API.Infrastructure;
 using APLabApp.Bll.Services;
 using APLabApp.BLL.Auth;
+using APLabApp.BLL.DeleteRequests;
 using APLabApp.BLL.Feedbacks;
 using APLabApp.BLL.Seasons;
 using APLabApp.BLL.Users;
 using APLabApp.Dal;
 using APLabApp.Dal.Repositories;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.Tokens;
@@ -49,17 +53,23 @@ builder.Services.AddDbContext<AppDbContext>((sp, o) =>
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddHttpClient<IKeycloakAdminService, KeycloakAdminService>();
+
 builder.Services.AddScoped<ISeasonRepository, SeasonRepository>();
 builder.Services.AddScoped<ISeasonService, SeasonService>();
+
 builder.Services.AddScoped<IFeedbackRepository, FeedbackRepository>();
-builder.Services.AddScoped<IFeedbackService, FeedbackService>();
 builder.Services.AddScoped<IGradeRepository, GradeRepository>();
+builder.Services.AddScoped<IFeedbackService, FeedbackService>();
+
 builder.Services.AddScoped<IDeleteRequestRepository, DeleteRequestRepository>();
 builder.Services.AddScoped<IDeleteRequestService, DeleteRequestService>();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers().ConfigureApiBehaviorOptions(o => o.SuppressModelStateInvalidFilter = true);
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
+builder.Services.AddFluentValidationAutoValidation(o => o.DisableDataAnnotationsValidation = true);
+builder.Services.AddValidatorsFromAssembly(typeof(APLabApp.BLL.Validation.ValidationMarker).Assembly);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -80,11 +90,7 @@ builder.Services.AddSwaggerGen(c =>
         {
             new OpenApiSecurityScheme
             {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
             },
             Array.Empty<string>()
         }
@@ -92,18 +98,6 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
-
-var corsOrigins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? new[] { "http://localhost:4200" };
-builder.Services.AddCors(o =>
-{
-    o.AddPolicy("frontend", p =>
-        p.WithOrigins(corsOrigins)
-         .AllowAnyHeader()
-         .AllowAnyMethod()
-         .AllowCredentials());
-});
-
-builder.Services.AddSignalR();
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -165,6 +159,18 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
+
+var corsOrigins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? new[] { "http://localhost:4200" };
+builder.Services.AddCors(o =>
+{
+    o.AddPolicy("frontend", p =>
+        p.WithOrigins(corsOrigins)
+         .AllowAnyHeader()
+         .AllowAnyMethod()
+         .AllowCredentials());
+});
+
+builder.Services.AddSignalR();
 
 IdentityModelEventSource.ShowPII = true;
 

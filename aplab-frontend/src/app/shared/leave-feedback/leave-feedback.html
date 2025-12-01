@@ -2,6 +2,8 @@
   <div class="lf-modal" (click)="$event.stopPropagation()">
     <h3 class="lf-title">Leave feedback</h3>
 
+    <app-server-errors [problem]="problem"></app-server-errors>
+
     <p class="lf-subtitle">
       For: {{ targetUser?.fullName || targetUser?.email }}
     </p>
@@ -75,8 +77,6 @@
       </div>
     </ng-template>
 
-    <p class="lf-error" *ngIf="errorMessage">{{ errorMessage }}</p>
-
     <div class="lf-actions">
       <button class="btn ghost" type="button" (click)="onCancel()">
         Cancel
@@ -91,7 +91,7 @@
 <app-confirm-create
   *ngIf="showConfirm"
   [title]="'Are you sure?'"
-  [message]="'You won\'t be able to delete this feedback after.'"
+  [message]="'You will not be able to delete this feedback after.'"
   [confirmLabel]="'Yes'"
   [cancelLabel]="'No'"
   [loading]="saving"

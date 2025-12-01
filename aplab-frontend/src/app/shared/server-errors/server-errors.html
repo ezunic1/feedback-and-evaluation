@@ -1,0 +1,20 @@
+<ng-container *ngIf="problem as p">
+  <ng-container *ngIf="field; else globalBlock">
+    <ul class="field-errors" *ngIf="fieldErrors.length">
+      <li *ngFor="let e of fieldErrors">{{ e }}</li>
+    </ul>
+  </ng-container>
+
+  <ng-template #globalBlock>
+    <div class="server-error" *ngIf="hasAnything" aria-live="polite">
+      <div class="title" *ngIf="p.title">{{ p.title }}</div>
+      <div class="detail" *ngIf="p.detail">{{ p.detail }}</div>
+      <ul class="list" *ngIf="!p.detail && allErrors.length">
+        <li *ngFor="let e of allErrors">{{ e }}</li>
+      </ul>
+      <div class="meta" *ngIf="p.status || p.traceId">
+        <span *ngIf="p.status">Status: {{ p.status }}</span>
+      </div>
+    </div>
+  </ng-template>
+</ng-container>

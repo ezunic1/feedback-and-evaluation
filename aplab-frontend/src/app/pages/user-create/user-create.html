@@ -5,15 +5,18 @@
     <h2>Create User</h2>
     <p class="subtitle">Enter profile details, role and password</p>
 
+
     <form (ngSubmit)="onSubmit()" #f="ngForm" novalidate>
       <div class="form-group">
         <label>Full Name</label>
         <input type="text" [(ngModel)]="model.fullName" name="fullName" required />
+        <app-server-errors [problem]="problem" field="FullName"></app-server-errors>
       </div>
 
       <div class="form-group">
         <label>Email</label>
         <input type="email" [(ngModel)]="model.email" name="email" required />
+        <app-server-errors [problem]="problem" field="Email"></app-server-errors>
       </div>
 
       <div class="form-group">
@@ -26,11 +29,13 @@
         <select [(ngModel)]="model.role" name="role" required>
           <option *ngFor="let r of roles" [value]="r">{{ roleLabel[r] }}</option>
         </select>
+        <app-server-errors [problem]="problem" field="RoleName"></app-server-errors>
       </div>
 
       <div class="form-group">
         <label>Password</label>
         <input type="password" [(ngModel)]="model.password" name="password" autocomplete="new-password" required />
+        <app-server-errors [problem]="problem" field="Password"></app-server-errors>
       </div>
 
       <div class="form-group">
@@ -39,19 +44,14 @@
       </div>
 
       <div class="form-check">
-        <input
-          id="forceChange"
-          type="checkbox"
-          [(ngModel)]="model.forcePasswordChange"
-          name="forcePasswordChange"
-        />
+        <input id="forceChange" type="checkbox" [(ngModel)]="model.forcePasswordChange" name="forcePasswordChange"/>
         <label for="forceChange">Require password change on first login</label>
-     </div>
+      </div>
       <button type="submit" class="create-btn" [disabled]="loading || !f.form.valid">
         {{ loading ? 'Creating...' : 'Create User' }}
       </button>
+      
+    <app-server-errors [problem]="problem"></app-server-errors>
     </form>
-
-    <p *ngIf="message" class="message">{{ message }}</p>
   </div>
 </div>

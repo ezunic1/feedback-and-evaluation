@@ -246,16 +246,13 @@ namespace APLabApp.BLL.Users
             {
                 var kcDeleted = await _kc.DeleteUserAsync(e.KeycloakId, ct);
                 if (!kcDeleted)
-                {
                     throw new InvalidOperationException("Failed to delete user in Keycloak.");
-                }
             }
 
             await _repo.DeleteAsync(e, ct);
             await _repo.SaveChangesAsync(ct);
             return true;
         }
-
 
         public async Task<bool> ChangePasswordAsync(Guid id, string newPassword, string? currentPassword, CancellationToken ct)
         {
@@ -273,9 +270,9 @@ namespace APLabApp.BLL.Users
         public async Task<UserDto> CreateGuestAsync(CreateUserRequest req, string password, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(req.FullName))
-                throw new ValidationException("Full name is required.");
+                throw new AppValidationException("Full name is required.");
             if (string.IsNullOrWhiteSpace(req.Email))
-                throw new ValidationException("Email is required.");
+                throw new AppValidationException("Email is required.");
 
             var email = req.Email.Trim().ToLowerInvariant();
 
@@ -285,7 +282,7 @@ namespace APLabApp.BLL.Users
             if (emailExists)
                 throw new ConflictException("A user with this email already exists.");
 
-            var username = BuildUsernameFromEmail(email); 
+            var username = BuildUsernameFromEmail(email);
 
             Guid? keycloakId;
             try
@@ -294,7 +291,6 @@ namespace APLabApp.BLL.Users
             }
             catch (ConflictException)
             {
-                // Keycloak javlja da username ili email već postoji u IdP-u
                 throw;
             }
 

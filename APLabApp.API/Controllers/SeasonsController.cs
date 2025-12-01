@@ -3,6 +3,7 @@ using APLabApp.BLL.Seasons;
 using APLabApp.BLL.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using FluentValidation;
 
 namespace APLabApp.Api.Controllers
 {
@@ -12,11 +13,19 @@ namespace APLabApp.Api.Controllers
     {
         private readonly ISeasonService _service;
         private readonly IUserService _users;
+        private readonly IValidator<CreateSeasonRequest> _createValidator;
+        private readonly IValidator<UpdateSeasonRequest> _updateValidator;
 
-        public SeasonsController(ISeasonService service, IUserService users)
+        public SeasonsController(
+            ISeasonService service,
+            IUserService users,
+            IValidator<CreateSeasonRequest> createValidator,
+            IValidator<UpdateSeasonRequest> updateValidator)
         {
             _service = service;
             _users = users;
+            _createValidator = createValidator;
+            _updateValidator = updateValidator;
         }
 
         [HttpGet]
@@ -36,6 +45,7 @@ namespace APLabApp.Api.Controllers
         [HttpPost]
         public async Task<ActionResult<SeasonDto>> Create([FromBody] CreateSeasonRequest req, CancellationToken ct)
         {
+            await _createValidator.ValidateAndThrowAsync(req, ct);
             var created = await _service.CreateAsync(req, ct);
             return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
         }
@@ -44,6 +54,7 @@ namespace APLabApp.Api.Controllers
         [HttpPut("{id:int}")]
         public async Task<ActionResult<SeasonDto>> Update(int id, [FromBody] UpdateSeasonRequest req, CancellationToken ct)
         {
+            await _updateValidator.ValidateAndThrowAsync(req, ct);
             var updated = await _service.UpdateAsync(id, req, ct);
             return updated is null ? NotFound() : Ok(updated);
         }

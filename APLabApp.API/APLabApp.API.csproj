@@ -11,6 +11,8 @@
 	<ItemGroup>
 		<!-- Aspire klijentska auth ekstenzija za Keycloak (AddKeycloakJwtBearer) -->
 		<PackageReference Include="Aspire.Keycloak.Authentication" Version="9.5.2-preview.1.25522.3" />
+		<PackageReference Include="FluentValidation" Version="12.1.0" />
+		<PackageReference Include="FluentValidation.AspNetCore" Version="11.3.1" />
 
 		<!-- OpenAPI helper -->
 		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.10" />

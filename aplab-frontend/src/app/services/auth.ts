@@ -1,8 +1,9 @@
 import { Injectable, signal, inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, Subject, throwError, of } from 'rxjs';
-import { catchError, tap, map, shareReplay, switchMap } from 'rxjs/operators';
+import { HttpClient } from '@angular/common/http';
+import { Observable, Subject, of, throwError } from 'rxjs';
+import { tap, map, shareReplay, catchError } from 'rxjs/operators';
+import { ProblemDetails, extractProblem } from '../models/problem-details';
 
 export type RegisterRequest = { fullName: string; email: string; password: string; };
 export type LoginRequest = { usernameOrEmail: string; password: string; };
@@ -54,19 +55,14 @@ export class Auth {
   isLoggedIn() { return this._isLoggedIn(); }
   user() { return this._user(); }
 
-  register(data: RegisterRequest): Observable<any> {
+  register(data: RegisterRequest): Observable<void> {
     const payload: RegisterRequest = {
       fullName: (data.fullName || '').trim(),
       email: (data.email || '').trim().toLowerCase(),
       password: data.password || ''
     };
-    return this.http.post(`${this.api}/register`, payload).pipe(
-      catchError((err: HttpErrorResponse) => {
-        const detail = (err?.error && typeof err.error === 'object') ? (err.error.detail || err.error.message) : null;
-        const str = typeof err?.error === 'string' ? err.error : null;
-        const msg = detail || str || (err.status === 409 ? 'A user with this email already exists.' : err.status === 400 ? 'Invalid input.' : `Request failed (${err.status})`);
-        return throwError(() => new Error(msg));
-      })
+    return this.http.post<void>(`${this.api}/register`, payload).pipe(
+      catchError((err: any) => throwError(() => extractProblem(err)))
     );
   }
 
@@ -92,20 +88,14 @@ export class Auth {
         this.scheduleProactiveRefresh(true);
       }),
       tap(() => this.sync$().subscribe()),
-      catchError((err: HttpErrorResponse) => {
-  if (err.status === 428) {
-    const raw = err.error || {};
-    const url = raw.changePasswordUrl || raw.authUrl || raw.AuthUrl || '';
-    const message = raw.message || 'You must change your password before the first login.';
-    return throwError(() => ({ changeRequired: true, url, message }));
-  }
-
-  const detail = (err?.error && typeof err.error === 'object') ? (err.error.detail || err.error.message) : null;
-  const str = typeof err?.error === 'string' ? err.error : null;
-  const msg = detail || str || `Request failed (${err.status})`;
-  return throwError(() => new Error(msg));
-})
-
+      catchError((err: any) => {
+        if (err?.status === 428 || err?.changeRequired) {
+          const url = err?.url || '';
+          const message = err?.message || err?.detail || 'You must change your password before the first login.';
+          return throwError(() => ({ changeRequired: true, url, message }));
+        }
+        return throwError(() => (extractProblem(err)));
+      })
     );
   }
 
@@ -246,12 +236,7 @@ export class Auth {
     if (!token) return null;
     try {
       const payload = JSON.parse(atob(token.split('.')[1])) as JwtPayload;
-      return {
-        name: payload.name ?? payload.preferred_username ?? undefined,
-        email: payload.email ?? undefined
-      };
-    } catch {
-      return null;
-    }
+      return { name: payload.name ?? payload.preferred_username ?? undefined, email: payload.email ?? undefined };
+    } catch { return null; }
   }
 }

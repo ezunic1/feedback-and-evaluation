@@ -1,4 +1,9 @@
-﻿using APLabApp.BLL.Auth;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using APLabApp.BLL.Auth;
 using APLabApp.BLL.Errors;
 using APLabApp.BLL.Users;
 using APLabApp.Dal.Entities;
@@ -33,41 +38,23 @@ namespace APLabApp.BLL.Seasons
 
         public async Task<SeasonDto> CreateAsync(CreateSeasonRequest req, CancellationToken ct)
         {
-            if (string.IsNullOrWhiteSpace(req.Name))
-                throw new ValidationException("Season name is required.");
-
-            if (req.StartDate == default || req.EndDate == default)
-                throw new ValidationException("Start and end date are required.");
-
-            if (req.StartDate >= req.EndDate)
-                throw new ValidationException("Start date must be before end date.");
-
-            // provjera preklapanja sa postojećim sezonama
-            var allSeasons = await _seasons.GetAllAsync(ct); 
-
+            var allSeasons = await _seasons.GetAllAsync(ct);
             var overlapping = allSeasons
-                .FirstOrDefault(s =>
-                    s.StartDate <= req.EndDate &&
-                    s.EndDate >= req.StartDate);
-
+                .FirstOrDefault(s => s.StartDate <= req.EndDate && s.EndDate >= req.StartDate);
             if (overlapping is not null)
-            {
                 throw new ConflictException(
                     $"Season '{overlapping.Name}' ({overlapping.StartDate:yyyy-MM-dd} – {overlapping.EndDate:yyyy-MM-dd}) already occupies this period.");
-            }
 
             if (req.MentorId.HasValue)
             {
                 var mentor = await _users.GetByIdAsync(req.MentorId.Value, ct);
                 if (mentor is null)
                     throw new NotFoundException("Mentor not found.");
-
                 if (mentor.KeycloakId == Guid.Empty)
-                    throw new ValidationException("Mentor has no Keycloak link.");
-
+                    throw new AppValidationException("Mentor has no Keycloak link.");
                 var isMentor = await _kc.IsUserInGroupAsync(mentor.KeycloakId, "mentor", ct);
                 if (!isMentor)
-                    throw new ValidationException("Selected user is not a mentor.");
+                    throw new AppValidationException("Selected user is not a mentor.");
             }
 
             var entity = new Season
@@ -81,7 +68,7 @@ namespace APLabApp.BLL.Seasons
             await _seasons.AddAsync(entity, ct);
             await _seasons.SaveChangesAsync(ct);
 
-            var created = await _seasons.GetByIdAsync(entity.Id, ct, false);
+            var created = await _seasons.GetByIdAsync(entity.Id, ct, includeUsers: false);
             if (created is null)
                 throw new NotFoundException("Created season not found.");
 
@@ -90,15 +77,22 @@ namespace APLabApp.BLL.Seasons
 
         public async Task<SeasonDto?> UpdateAsync(int id, UpdateSeasonRequest req, CancellationToken ct)
         {
-            var s = await _seasons.GetByIdAsync(id, ct, false);
+            var s = await _seasons.GetByIdAsync(id, ct, includeUsers: false);
             if (s is null) return null;
 
-            if (req.Name is not null) s.Name = req.Name;
-            if (req.StartDate.HasValue) s.StartDate = req.StartDate.Value;
-            if (req.EndDate.HasValue) s.EndDate = req.EndDate.Value;
+            if (req.Name is not null)
+                s.Name = req.Name.Trim();
+
+            if (req.StartDate.HasValue)
+                s.StartDate = req.StartDate.Value;
+
+            if (req.EndDate.HasValue)
+                s.EndDate = req.EndDate.Value;
+
             if (req.StartDate.HasValue || req.EndDate.HasValue)
             {
-                if (s.StartDate >= s.EndDate) throw new ArgumentException("StartDate must be before EndDate.");
+                if (s.StartDate >= s.EndDate)
+                    throw new AppValidationException("Start date must be before end date.");
             }
 
             if (req.MentorId != s.MentorId)
@@ -106,10 +100,13 @@ namespace APLabApp.BLL.Seasons
                 if (req.MentorId.HasValue)
                 {
                     var mentor = await _users.GetByIdAsync(req.MentorId.Value, ct);
-                    if (mentor is null) throw new InvalidOperationException("Mentor not found.");
-                    if (mentor.KeycloakId == Guid.Empty) throw new InvalidOperationException("Mentor has no Keycloak link.");
+                    if (mentor is null)
+                        throw new NotFoundException("Mentor not found.");
+                    if (mentor.KeycloakId == Guid.Empty)
+                        throw new AppValidationException("Mentor has no Keycloak link.");
                     var isMentor = await _kc.IsUserInGroupAsync(mentor.KeycloakId, "mentor", ct);
-                    if (!isMentor) throw new InvalidOperationException("Selected user is not a mentor.");
+                    if (!isMentor)
+                        throw new AppValidationException("Selected user is not a mentor.");
                     s.MentorId = req.MentorId;
                 }
                 else
@@ -121,19 +118,17 @@ namespace APLabApp.BLL.Seasons
             await _seasons.UpdateAsync(s, ct);
             await _seasons.SaveChangesAsync(ct);
 
-            var updated = await _seasons.GetByIdAsync(s.Id, ct, false);
+            var updated = await _seasons.GetByIdAsync(s.Id, ct, includeUsers: false);
             return SeasonMappings.FromEntity(updated!);
         }
 
         public async Task<bool> DeleteAsync(int id, CancellationToken ct)
         {
-            var s = await _seasons.GetByIdAsync(id, ct, true);
+            var s = await _seasons.GetByIdAsync(id, ct, includeUsers: true);
             if (s is null) return false;
 
             foreach (var u in s.Users.ToList())
-            {
                 u.SeasonId = null;
-            }
 
             await _seasons.DeleteAsync(s, ct);
             await _seasons.SaveChangesAsync(ct);
@@ -142,7 +137,7 @@ namespace APLabApp.BLL.Seasons
 
         public async Task<AssignMentorResult> AssignMentorAsync(int id, Guid? mentorId, CancellationToken ct)
         {
-            var s = await _seasons.GetByIdAsync(id, ct, false);
+            var s = await _seasons.GetByIdAsync(id, ct, includeUsers: false);
             if (s is null) return AssignMentorResult.NotFound;
 
             if (mentorId.HasValue)
@@ -166,7 +161,7 @@ namespace APLabApp.BLL.Seasons
 
         public async Task<AddUserResult> AddUserAsync(int id, Guid userId, CancellationToken ct)
         {
-            var s = await _seasons.GetByIdAsync(id, ct, false);
+            var s = await _seasons.GetByIdAsync(id, ct, includeUsers: false);
             if (s is null) return AddUserResult.NotFound;
 
             var u = await _users.GetByIdAsync(userId, ct);
@@ -176,7 +171,8 @@ namespace APLabApp.BLL.Seasons
             var isIntern = await _kc.IsUserInGroupAsync(u.KeycloakId, "intern", ct);
             if (!isIntern) return AddUserResult.InvalidRole;
 
-            if (u.SeasonId.HasValue && u.SeasonId.Value != id) return AddUserResult.AlreadyInAnotherSeason;
+            if (u.SeasonId.HasValue && u.SeasonId.Value != id)
+                return AddUserResult.AlreadyInAnotherSeason;
 
             u.SeasonId = id;
             await _users.UpdateAsync(u, ct);
@@ -186,7 +182,7 @@ namespace APLabApp.BLL.Seasons
 
         public async Task<AddUserResult> AddUserByMentorAsync(int id, Guid userId, Guid mentorKeycloakId, CancellationToken ct)
         {
-            var s = await _seasons.GetByIdAsync(id, ct, false);
+            var s = await _seasons.GetByIdAsync(id, ct, includeUsers: false);
             if (s is null) return AddUserResult.NotFound;
 
             var mentor = (await _users.GetAllAsync(ct)).FirstOrDefault(x => x.KeycloakId == mentorKeycloakId);
@@ -206,7 +202,8 @@ namespace APLabApp.BLL.Seasons
                     return AddUserResult.InvalidRole;
             }
 
-            if (u.SeasonId.HasValue && u.SeasonId.Value != id) return AddUserResult.AlreadyInAnotherSeason;
+            if (u.SeasonId.HasValue && u.SeasonId.Value != id)
+                return AddUserResult.AlreadyInAnotherSeason;
 
             u.SeasonId = id;
             await _users.UpdateAsync(u, ct);
@@ -216,12 +213,11 @@ namespace APLabApp.BLL.Seasons
 
         public async Task<bool> RemoveUserAsync(int id, Guid userId, CancellationToken ct)
         {
-            var s = await _seasons.GetByIdAsync(id, ct, false);
+            var s = await _seasons.GetByIdAsync(id, ct, includeUsers: false);
             if (s is null) return false;
 
             var u = await _users.GetByIdAsync(userId, ct);
-            if (u is null) return false;
-            if (u.SeasonId != id) return false;
+            if (u is null || u.SeasonId != id) return false;
 
             u.SeasonId = null;
             await _users.UpdateAsync(u, ct);
@@ -231,15 +227,14 @@ namespace APLabApp.BLL.Seasons
 
         public async Task<bool> RemoveUserByMentorAsync(int id, Guid userId, Guid mentorKeycloakId, CancellationToken ct)
         {
-            var s = await _seasons.GetByIdAsync(id, ct, false);
+            var s = await _seasons.GetByIdAsync(id, ct, includeUsers: false);
             if (s is null) return false;
 
             var mentor = (await _users.GetAllAsync(ct)).FirstOrDefault(x => x.KeycloakId == mentorKeycloakId);
             if (mentor is null || s.MentorId != mentor.Id) return false;
 
             var u = await _users.GetByIdAsync(userId, ct);
-            if (u is null) return false;
-            if (u.SeasonId != id) return false;
+            if (u is null || u.SeasonId != id) return false;
 
             u.SeasonId = null;
             await _users.UpdateAsync(u, ct);
@@ -253,7 +248,7 @@ namespace APLabApp.BLL.Seasons
 
         public async Task<IReadOnlyList<UserDto>> GetUsersAsync(int id, CancellationToken ct)
         {
-            var s = await _seasons.GetByIdAsync(id, ct, true);
+            var s = await _seasons.GetByIdAsync(id, ct, includeUsers: true);
             if (s is null) return Array.Empty<UserDto>();
             return s.Users.Select(UserMappings.FromEntity).ToList();
         }
@@ -262,7 +257,7 @@ namespace APLabApp.BLL.Seasons
         {
             var me = (await _users.GetAllAsync(ct)).FirstOrDefault(x => x.KeycloakId == actorKeycloakId);
             if (me is null || !me.SeasonId.HasValue) return null;
-            var s = await _seasons.GetByIdAsync(me.SeasonId.Value, ct, false);
+            var s = await _seasons.GetByIdAsync(me.SeasonId.Value, ct, includeUsers: false);
             return s is null ? null : SeasonMappings.FromEntity(s);
         }
 
@@ -270,7 +265,7 @@ namespace APLabApp.BLL.Seasons
         {
             var me = (await _users.GetAllAsync(ct)).FirstOrDefault(x => x.KeycloakId == actorKeycloakId);
             if (me is null || !me.SeasonId.HasValue) return Array.Empty<UserDto>();
-            var s = await _seasons.GetByIdAsync(me.SeasonId.Value, ct, true);
+            var s = await _seasons.GetByIdAsync(me.SeasonId.Value, ct, includeUsers: true);
             if (s is null) return Array.Empty<UserDto>();
             return s.Users.Where(u => u.Id != me.Id).Select(UserMappings.FromEntity).ToList();
         }

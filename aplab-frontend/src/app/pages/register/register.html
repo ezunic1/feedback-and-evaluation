@@ -5,68 +5,30 @@
     <h2>Create Your Account</h2>
     <p class="subtitle">Join the Authority Partners Lab community</p>
 
+   
+
     <form (ngSubmit)="onSubmit(registerForm)" #registerForm="ngForm" novalidate>
       <div class="form-group">
         <label>Full Name</label>
-        <input
-          type="text"
-          name="fullName"
-          [(ngModel)]="model.fullName"
-          #fullName="ngModel"
-          required
-        />
-        <div class="field-error" *ngIf="fullName.invalid && (fullName.touched || registerForm.submitted)">
-          * Full name is required.
-        </div>
+        <input type="text" name="fullName" [(ngModel)]="model.fullName" #fullName="ngModel" required />
+        <app-server-errors [problem]="problem" field="FullName"></app-server-errors>
       </div>
 
       <div class="form-group">
         <label>Email</label>
-        <input
-          type="email"
-          name="email"
-          [(ngModel)]="model.email"
-          #email="ngModel"
-          required
-          email
-        />
-        <div class="field-error" *ngIf="email.errors?.['required'] && (email.touched || registerForm.submitted)">
-          * Email is required.
-        </div>
-        <div class="field-error" *ngIf="email.errors?.['email'] && (email.touched || registerForm.submitted)">
-          * Enter a valid email address.
-        </div>
+        <input type="email" name="email" [(ngModel)]="model.email" #email="ngModel" required email />
+        <app-server-errors [problem]="problem" field="Email"></app-server-errors>
       </div>
 
       <div class="form-group">
         <label>Password</label>
-        <input
-          type="password"
-          name="password"
-          [(ngModel)]="model.password"
-          #password="ngModel"
-          required
-        />
-        <div class="field-error" *ngIf="password.invalid && (password.touched || registerForm.submitted)">
-          * Password is required.
-        </div>
+        <input type="password" name="password" [(ngModel)]="model.password" #password="ngModel" required />
+        <app-server-errors [problem]="problem" field="Password"></app-server-errors>
       </div>
 
       <div class="form-group">
         <label>Confirm Password</label>
-        <input
-          type="password"
-          name="confirmPassword"
-          [(ngModel)]="confirmPassword"
-          #confirm="ngModel"
-          required
-        />
-        <div class="field-error" *ngIf="confirm.invalid && (confirm.touched || registerForm.submitted)">
-          * Please confirm your password.
-        </div>
-        <div class="field-error" *ngIf="confirmPassword && model.password && confirmPassword !== model.password && (confirm.touched || registerForm.submitted)">
-          * Passwords do not match.
-        </div>
+        <input type="password" name="confirmPassword" [(ngModel)]="confirmPassword" #confirm="ngModel" required />
       </div>
 
       <div class="form-group">
@@ -75,9 +37,10 @@
           {{ loading ? 'Registering...' : 'Register' }}
         </button>
       </div>
+       <app-server-errors [problem]="problem"></app-server-errors>
     </form>
 
-    <p *ngIf="message" class="message">{{ message }}</p>
+    <p *ngIf="successMsg" class="message">{{ successMsg }}</p>
 
     <p class="login-link">
       Already have an account? <a routerLink="/login">Login here</a>

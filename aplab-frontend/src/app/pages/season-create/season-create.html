@@ -5,52 +5,40 @@
     <h2>Create Season</h2>
     <p class="subtitle">Define name, dates and assign a mentor</p>
 
+
     <form (ngSubmit)="onSubmit()" #f="ngForm" novalidate>
       <div class="form-group">
         <label>Season Name</label>
-        <input
-          type="text"
-          [(ngModel)]="model.name"
-          name="name"
-          required
-        />
+        <input type="text" [(ngModel)]="model.name" name="name" required />
+        <app-server-errors [problem]="problem" field="Name"></app-server-errors>
       </div>
 
       <div class="form-group">
         <label>Start Date</label>
-        <input
-          type="date"
-          [(ngModel)]="model.startDate"
-          name="startDate"
-          required
-        />
+        <input type="date" [(ngModel)]="model.startDate" name="startDate" required />
+        <app-server-errors [problem]="problem" field="StartDate"></app-server-errors>
       </div>
 
       <div class="form-group">
         <label>End Date</label>
-        <input
-          type="date"
-          [(ngModel)]="model.endDate"
-          name="endDate"
-          required
-        />
+        <input type="date" [(ngModel)]="model.endDate" name="endDate" required />
+        <app-server-errors [problem]="problem" field="EndDate"></app-server-errors>
       </div>
 
       <div class="form-group">
         <label>Mentor</label>
         <select [(ngModel)]="model.mentorId" name="mentorId">
           <option value="">No mentor</option>
-          <option *ngFor="let m of mentors" [value]="m.id">
-            {{ m.fullName || m.email }}
-          </option>
+          <option *ngFor="let m of mentors" [value]="m.id">{{ m.fullName || m.email }}</option>
         </select>
+        <app-server-errors [problem]="problem" field="MentorId"></app-server-errors>
       </div>
 
       <button type="submit" class="create-btn" [disabled]="loading">
         {{ loading ? 'Creating...' : 'Create Season' }}
       </button>
-    </form>
+          <app-server-errors [problem]="problem"></app-server-errors>
 
-    <p *ngIf="message" class="message">{{ message }}</p>
+    </form>
   </div>
 </div>

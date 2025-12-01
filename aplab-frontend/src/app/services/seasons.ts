@@ -1,6 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpResponse } from '@angular/common/http';
 import { Observable, map, shareReplay, tap } from 'rxjs';
+import { catchError, throwError } from 'rxjs';
+import { extractProblem } from '../models/problem-details';
 
 export interface SeasonDto {
   id: number;
@@ -100,7 +102,10 @@ export class Seasons {
   }
 
   create(req: CreateSeasonRequest): Observable<SeasonDto> {
-    return this.http.post<SeasonDto>(this.base, req).pipe(tap(() => this.invalidateCaches()));
+    return this.http.post<SeasonDto>(this.base, req).pipe(
+      tap(() => this.invalidateCaches()),
+      catchError(err => throwError(() => extractProblem(err)))
+    );
   }
 
   update(id: number, req: UpdateSeasonRequest): Observable<SeasonDto> {

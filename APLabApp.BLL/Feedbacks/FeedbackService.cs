@@ -3,9 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using APLabApp.BLL.Errors;
 using APLabApp.Dal.Entities;
 using APLabApp.Dal.Repositories;
 using Microsoft.EntityFrameworkCore;
+
+using DomainValidationException = APLabApp.BLL.Errors.AppValidationException;
 
 namespace APLabApp.BLL.Feedbacks
 {
@@ -30,36 +33,33 @@ namespace APLabApp.BLL.Feedbacks
 
         public async Task<FeedbackDto> CreateInternFeedbackAsync(Guid senderUserId, CreateInternFeedbackRequest req, CancellationToken ct)
         {
-            if (string.IsNullOrWhiteSpace(req.Comment))
-                throw new ArgumentException("Comment is required.", nameof(req.Comment));
-
             var sender = await _users.GetByIdAsync(senderUserId, ct);
             if (sender is null)
-                throw new InvalidOperationException("Sender not found.");
+                throw new NotFoundException("Sender not found.");
 
             if (!sender.SeasonId.HasValue)
-                throw new InvalidOperationException("Intern must be assigned to a season to send feedback.");
+                throw new ForbiddenException("Intern must be assigned to a season to send feedback.");
 
             var season = await _seasons.GetByIdAsync(sender.SeasonId.Value, ct);
             if (season is null)
-                throw new InvalidOperationException("Season not found.");
+                throw new NotFoundException("Season not found.");
 
             var now = DateTime.UtcNow;
             if (now < season.StartDate || now > season.EndDate)
-                throw new InvalidOperationException("Feedback can only be sent during an active season.");
+                throw new DomainValidationException("Feedback can only be sent during an active season.");
 
             var receiver = await _users.GetByIdAsync(req.ReceiverUserId, ct);
             if (receiver is null)
-                throw new InvalidOperationException("Receiver not found.");
+                throw new NotFoundException("Receiver not found.");
 
             if (receiver.Id == sender.Id)
-                throw new InvalidOperationException("Cannot send feedback to yourself.");
+                throw new DomainValidationException("Cannot send feedback to yourself.");
 
             var receiverIsInternInSameSeason = receiver.SeasonId == season.Id;
             var receiverIsMentorOfSeason = season.MentorId == receiver.Id;
 
             if (!receiverIsInternInSameSeason && !receiverIsMentorOfSeason)
-                throw new InvalidOperationException("Intern can send feedback only to interns in the same season or the mentor of that season.");
+                throw new ForbiddenException("Intern can send feedback only to interns in the same season or the mentor of that season.");
 
             var feedback = new Feedback
             {
@@ -86,34 +86,27 @@ namespace APLabApp.BLL.Feedbacks
 
         public async Task<FeedbackDto> CreateMentorFeedbackAsync(Guid senderUserId, CreateMentorFeedbackRequest req, CancellationToken ct)
         {
-            if (string.IsNullOrWhiteSpace(req.Comment))
-                throw new ArgumentException("Comment is required.", nameof(req.Comment));
-
-            ValidateScore(req.CareerSkills, nameof(req.CareerSkills));
-            ValidateScore(req.Communication, nameof(req.Communication));
-            ValidateScore(req.Collaboration, nameof(req.Collaboration));
-
             var sender = await _users.GetByIdAsync(senderUserId, ct);
             if (sender is null)
-                throw new InvalidOperationException("Sender not found.");
+                throw new NotFoundException("Sender not found.");
 
             var receiver = await _users.GetByIdAsync(req.ReceiverUserId, ct);
             if (receiver is null)
-                throw new InvalidOperationException("Receiver not found.");
+                throw new NotFoundException("Receiver not found.");
 
             if (!receiver.SeasonId.HasValue)
-                throw new InvalidOperationException("Mentor can only send graded feedback to an intern assigned to a season.");
+                throw new ForbiddenException("Mentor can only send graded feedback to an intern assigned to a season.");
 
             var season = await _seasons.GetByIdAsync(receiver.SeasonId.Value, ct);
             if (season is null)
-                throw new InvalidOperationException("Season not found.");
+                throw new NotFoundException("Season not found.");
 
             if (season.MentorId != sender.Id)
-                throw new InvalidOperationException("Mentor can only send feedback to interns in their own season.");
+                throw new ForbiddenException("Mentor can only send feedback to interns in their own season.");
 
             var now = DateTime.UtcNow;
             if (now < season.StartDate || now > season.EndDate)
-                throw new InvalidOperationException("Feedback can only be sent during an active season.");
+                throw new DomainValidationException("Feedback can only be sent during an active season.");
 
             var feedback = new Feedback
             {
@@ -157,7 +150,7 @@ namespace APLabApp.BLL.Feedbacks
         {
             var feedback = await _feedbacks.GetByIdAsync(feedbackId, ct);
             if (feedback is null)
-                return;
+                throw new NotFoundException("Feedback not found.");
 
             await _feedbacks.DeleteAsync(feedback, ct);
             await _feedbacks.SaveChangesAsync(ct);
@@ -167,7 +160,7 @@ namespace APLabApp.BLL.Feedbacks
         {
             var user = await _users.GetByIdAsync(internUserId, ct);
             if (user is null)
-                throw new InvalidOperationException("User not found.");
+                throw new NotFoundException("User not found.");
 
             if (page < 1) page = 1;
             if (pageSize < 1) pageSize = 10;
@@ -205,7 +198,7 @@ namespace APLabApp.BLL.Feedbacks
         {
             var mentor = await _users.GetByIdAsync(mentorUserId, ct);
             if (mentor is null)
-                throw new InvalidOperationException("User not found.");
+                throw new NotFoundException("User not found.");
 
             if (page < 1) page = 1;
             if (pageSize < 1) pageSize = 10;
@@ -338,29 +331,21 @@ namespace APLabApp.BLL.Feedbacks
             )).ToList();
         }
 
-        public async Task<MentorMonthlyAveragesPageDto> GetMentorMonthlyAveragesPagedAsync(
-            Guid mentorUserId,
-            int seasonId,
-            int monthIndex,
-            string? sortBy,
-            string? sortDir,
-            int page,
-            int pageSize,
-            CancellationToken ct)
+        public async Task<MentorMonthlyAveragesPageDto> GetMentorMonthlyAveragesPagedAsync(Guid mentorUserId, int seasonId, int monthIndex, string? sortBy, string? sortDir, int page, int pageSize, CancellationToken ct)
         {
             if (page < 1) page = 1;
             if (pageSize < 1) pageSize = 10;
 
             var mentor = await _users.GetByIdAsync(mentorUserId, ct);
             if (mentor is null)
-                throw new InvalidOperationException("User not found.");
+                throw new NotFoundException("User not found.");
 
             var season = await _seasons.GetByIdAsync(seasonId, ct);
             if (season is null)
-                throw new InvalidOperationException("Season not found.");
+                throw new NotFoundException("Season not found.");
 
             if (season.MentorId != mentor.Id)
-                throw new InvalidOperationException("Forbidden for this season.");
+                throw new ForbiddenException("Forbidden for this season.");
 
             var now = DateTime.UtcNow;
             var seasonStart = new DateTime(season.StartDate.Year, season.StartDate.Month, season.StartDate.Day, 0, 0, 0, DateTimeKind.Utc);
@@ -516,9 +501,9 @@ namespace APLabApp.BLL.Feedbacks
 
             var season = await _seasons.GetByIdAsync(seasonId, ct);
             if (season is null)
-                throw new InvalidOperationException("Season not found.");
+                throw new NotFoundException("Season not found.");
             if (season.MentorId != mentorUserId)
-                throw new InvalidOperationException("Forbidden for this season.");
+                throw new ForbiddenException("Forbidden for this season.");
 
             var q = _feedbacks.Query()
                 .AsNoTracking()
@@ -569,7 +554,7 @@ namespace APLabApp.BLL.Feedbacks
         {
             var season = await _seasons.GetByIdAsync(seasonId, ct);
             if (season is null)
-                throw new InvalidOperationException("Season not found.");
+                throw new NotFoundException("Season not found.");
 
             var now = DateTime.UtcNow;
             var start = new DateTime(season.StartDate.Year, season.StartDate.Month, season.StartDate.Day, 0, 0, 0, DateTimeKind.Utc);
@@ -605,12 +590,6 @@ namespace APLabApp.BLL.Feedbacks
             else if (t == "m2i")
                 q = q.Where(f => f.Grade != null && f.SenderUserId == f.Season.MentorId);
             return q;
-        }
-
-        private static void ValidateScore(int score, string paramName)
-        {
-            if (score < 1 || score > 5)
-                throw new ArgumentOutOfRangeException(paramName, "Score must be between 1 and 5.");
         }
     }
 }

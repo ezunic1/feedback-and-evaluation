@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using APLabApp.BLL.DeleteRequests;
+using APLabApp.BLL.Errors;
 using APLabApp.Dal.Entities;
 using APLabApp.Dal.Repositories;
 
@@ -28,11 +29,11 @@ namespace APLabApp.Bll.Services
         public async Task<int> CreateAsync(CreateDeleteRequestDto dto, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(dto.Reason))
-                throw new InvalidOperationException("Reason is required.");
+                throw new AppValidationException("Reason is required.");
 
             var feedback = await _feedbacks.GetByIdAsync(dto.FeedbackId, ct);
             if (feedback == null)
-                throw new InvalidOperationException("Feedback not found.");
+                throw new NotFoundException("Feedback not found.");
 
             var isParticipant =
                 dto.SenderUserId == feedback.SenderUserId ||
@@ -42,7 +43,7 @@ namespace APLabApp.Bll.Services
             var isSeasonMentor = season != null && season.MentorId == dto.SenderUserId;
 
             if (!isParticipant && !isSeasonMentor)
-                throw new InvalidOperationException("Not allowed to request deletion for this feedback.");
+                throw new ForbiddenException("Not allowed to request deletion for this feedback.");
 
             var dr = new DeleteRequest
             {
@@ -74,7 +75,7 @@ namespace APLabApp.Bll.Services
         {
             var dr = await _deleteRequests.GetByIdAsync(deleteRequestId, ct);
             if (dr == null)
-                throw new InvalidOperationException("Delete request not found.");
+                throw new NotFoundException("Delete request not found.");
 
             var fb = await _feedbacks.GetByIdAsync(dr.FeedbackId, ct);
             if (fb != null)
@@ -88,7 +89,7 @@ namespace APLabApp.Bll.Services
         {
             var dr = await _deleteRequests.GetByIdAsync(deleteRequestId, ct);
             if (dr == null)
-                throw new InvalidOperationException("Delete request not found.");
+                throw new NotFoundException("Delete request not found.");
 
             await _deleteRequests.DeleteAsync(dr, ct);
             await _deleteRequests.SaveChangesAsync(ct);

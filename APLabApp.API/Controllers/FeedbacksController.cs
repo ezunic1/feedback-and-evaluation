@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using APLabApp.BLL.Feedbacks;
 using APLabApp.BLL.Users;
+using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,18 +18,24 @@ namespace APLabApp.Api.Controllers
     {
         private readonly IFeedbackService _service;
         private readonly IUserService _users;
+        private readonly IValidator<CreateInternFeedbackRequest> _internValidator;
+        private readonly IValidator<CreateMentorFeedbackRequest> _mentorValidator;
 
-        public FeedbacksController(IFeedbackService service, IUserService users)
+        public FeedbacksController(
+            IFeedbackService service,
+            IUserService users,
+            IValidator<CreateInternFeedbackRequest> internValidator,
+            IValidator<CreateMentorFeedbackRequest> mentorValidator)
         {
             _service = service;
             _users = users;
+            _internValidator = internValidator;
+            _mentorValidator = mentorValidator;
         }
 
         [Authorize(Roles = "intern,mentor")]
         [HttpGet("me")]
-        public async Task<ActionResult<IReadOnlyList<FeedbackDto>>> GetMyFeedbacks(
-            [FromQuery] int page = 1,
-            CancellationToken ct = default)
+        public async Task<ActionResult<IReadOnlyList<FeedbackDto>>> GetMyFeedbacks([FromQuery] int page = 1, CancellationToken ct = default)
         {
             var sub = User.FindFirstValue("sub") ?? User.FindFirstValue("sid");
             if (!Guid.TryParse(sub, out var keycloakId))
@@ -56,10 +63,7 @@ namespace APLabApp.Api.Controllers
 
         [Authorize(Roles = "admin")]
         [HttpGet]
-        public async Task<ActionResult<IReadOnlyList<FeedbackDto>>> GetForAdmin(
-            [FromQuery] int? seasonId,
-            [FromQuery] int page = 1,
-            CancellationToken ct = default)
+        public async Task<ActionResult<IReadOnlyList<FeedbackDto>>> GetForAdmin([FromQuery] int? seasonId, [FromQuery] int page = 1, CancellationToken ct = default)
         {
             var list = await _service.GetForAdminAsync(seasonId, page, 500, ct);
             return Ok(list);
@@ -67,9 +71,7 @@ namespace APLabApp.Api.Controllers
 
         [Authorize(Roles = "intern")]
         [HttpGet("me/received/mentor")]
-        public async Task<ActionResult<IReadOnlyList<FeedbackDto>>> GetReceivedFromMentor(
-            [FromQuery] int page = 1,
-            CancellationToken ct = default)
+        public async Task<ActionResult<IReadOnlyList<FeedbackDto>>> GetReceivedFromMentor([FromQuery] int page = 1, CancellationToken ct = default)
         {
             var sub = User.FindFirstValue("sub") ?? User.FindFirstValue("sid");
             if (!Guid.TryParse(sub, out var keycloakId))
@@ -85,9 +87,7 @@ namespace APLabApp.Api.Controllers
 
         [Authorize(Roles = "intern")]
         [HttpGet("me/received/interns")]
-        public async Task<ActionResult<IReadOnlyList<FeedbackDto>>> GetReceivedFromInterns(
-            [FromQuery] int page = 1,
-            CancellationToken ct = default)
+        public async Task<ActionResult<IReadOnlyList<FeedbackDto>>> GetReceivedFromInterns([FromQuery] int page = 1, CancellationToken ct = default)
         {
             var sub = User.FindFirstValue("sub") ?? User.FindFirstValue("sid");
             if (!Guid.TryParse(sub, out var keycloakId))
@@ -103,9 +103,7 @@ namespace APLabApp.Api.Controllers
 
         [Authorize(Roles = "intern,mentor")]
         [HttpGet("me/sent")]
-        public async Task<ActionResult<IReadOnlyList<FeedbackDto>>> GetSentByMe(
-            [FromQuery] int page = 1,
-            CancellationToken ct = default)
+        public async Task<ActionResult<IReadOnlyList<FeedbackDto>>> GetSentByMe([FromQuery] int page = 1, CancellationToken ct = default)
         {
             var sub = User.FindFirstValue("sub") ?? User.FindFirstValue("sid");
             if (!Guid.TryParse(sub, out var keycloakId))
@@ -121,10 +119,9 @@ namespace APLabApp.Api.Controllers
 
         [Authorize(Roles = "intern")]
         [HttpPost("intern")]
-        public async Task<ActionResult<FeedbackDto>> CreateAsIntern(
-            [FromBody] CreateInternFeedbackRequest req,
-            CancellationToken ct)
+        public async Task<ActionResult<FeedbackDto>> CreateAsIntern([FromBody] CreateInternFeedbackRequest req, CancellationToken ct)
         {
+            await _internValidator.ValidateAndThrowAsync(req, ct);
             var sub = User.FindFirstValue("sub") ?? User.FindFirstValue("sid");
             if (!Guid.TryParse(sub, out var keycloakId))
                 return Unauthorized();
@@ -139,10 +136,9 @@ namespace APLabApp.Api.Controllers
 
         [Authorize(Roles = "mentor")]
         [HttpPost("mentor")]
-        public async Task<ActionResult<FeedbackDto>> CreateAsMentor(
-            [FromBody] CreateMentorFeedbackRequest req,
-            CancellationToken ct)
+        public async Task<ActionResult<FeedbackDto>> CreateAsMentor([FromBody] CreateMentorFeedbackRequest req, CancellationToken ct)
         {
+            await _mentorValidator.ValidateAndThrowAsync(req, ct);
             var sub = User.FindFirstValue("sub") ?? User.FindFirstValue("sid");
             if (!Guid.TryParse(sub, out var keycloakId))
                 return Unauthorized();
@@ -182,9 +178,7 @@ namespace APLabApp.Api.Controllers
             if (me is null)
                 return Unauthorized();
 
-            var dto = await _service.GetMentorMonthlyAveragesPagedAsync(
-                me.Id, seasonId, monthIndex, sortBy, sortDir, page, pageSize, ct);
-
+            var dto = await _service.GetMentorMonthlyAveragesPagedAsync(me.Id, seasonId, monthIndex, sortBy, sortDir, page, pageSize, ct);
             return Ok(dto);
         }
 
