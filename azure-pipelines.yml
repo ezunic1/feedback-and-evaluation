@@ -1,0 +1,70 @@
+trigger:
+  branches:
+    include:
+      - develop
+pr:
+  branches:
+    include:
+      - develop
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  buildConfiguration: 'Release'
+
+  CoverletInclude: '[APLabApp.BLL*]*'
+ 
+  CoverageOut: '$(Agent.TempDirectory)/coverage'
+
+steps:
+- task: UseDotNet@2
+  inputs:
+    packageType: 'sdk'
+    version: '9.x'
+
+
+- task: SonarCloudPrepare@1
+  inputs:
+    SonarCloud: 'SonarCloudConnection'   
+    organization: 'your-org'            
+    scannerMode: 'Other'
+    projectKey: 'aplabapp'               
+    projectName: 'AP Lab App'
+    extraProperties: |
+      sonar.cs.opencover.reportsPaths=$(CoverageOut)/**/coverage.opencover.xml
+      sonar.coverage.exclusions=**/APLabApp.API/**,**/APLabApp.AppHost/**,**/APLabApp.MigrationService/**,**/*Migrations/**,**/*Program.cs,**/*GlobalExceptionHandler.cs
+
+- script: dotnet restore
+  displayName: 'Restore'
+
+- script: dotnet build --no-restore -c $(buildConfiguration)
+  displayName: 'Build'
+
+
+- script: >
+    dotnet test --no-build -c $(buildConfiguration)
+    /p:CollectCoverage=true
+    /p:CoverletOutput=$(CoverageOut)/test/
+    /p:CoverletOutputFormat="opencover,cobertura"
+    /p:Include="$(CoverletInclude)"
+    /p:Threshold=80
+    /p:ThresholdType=line
+    /p:ThresholdStat=total
+    /p:ExcludeByFile="**/*Migrations/*.cs;**/*Program.cs;**/*GlobalExceptionHandler.cs"
+  displayName: 'Test with coverage (fail if <80%)'
+
+- task: PublishCodeCoverageResults@2
+  inputs:
+    codeCoverageTool: 'Cobertura'
+    summaryFileLocation: '$(CoverageOut)/**/coverage.cobertura.xml'
+    reportDirectory: '$(CoverageOut)'
+
+
+- task: SonarCloudAnalyze@1
+  displayName: 'SonarCloud Analyze'
+
+- task: SonarCloudPublish@1
+  displayName: 'SonarCloud Publish'
+  inputs:
+    pollingTimeoutSec: '300'

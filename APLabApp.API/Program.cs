@@ -151,7 +151,7 @@ builder.Services
             {
                 var accessToken = ctx.Request.Query["access_token"];
                 var path = ctx.HttpContext.Request.Path;
-                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/notifications"))
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
                     ctx.Token = accessToken;
                 return Task.CompletedTask;
             }
@@ -190,7 +190,7 @@ app.UseCors("frontend");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-app.MapHub<NotificationsHub>("/hubs/notifications");
+app.MapHub<NotificationsHub>("/hubs/notifications").RequireAuthorization();
 app.Run();
 
 static IEnumerable<string> ExtractRolesFromObject(object? obj, string rolesPropertyName)

@@ -1,8 +1,8 @@
 import { Injectable, signal, inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Observable, Subject, of, throwError } from 'rxjs';
-import { tap, map, shareReplay, catchError } from 'rxjs/operators';
+import { Observable, Subject, of, throwError, BehaviorSubject, shareReplay } from 'rxjs';
+import { tap, map, catchError } from 'rxjs/operators';
 import { ProblemDetails, extractProblem } from '../models/problem-details';
 
 export type RegisterRequest = { fullName: string; email: string; password: string; };
@@ -43,11 +43,15 @@ export class Auth {
   private refreshInFlight$?: Observable<string | null>;
   private wakeUp$ = new Subject<void>();
 
+  private tokenSubject = new BehaviorSubject<string | null>(null);
+  tokenChanges$ = this.tokenSubject.asObservable();
+
   constructor(private http: HttpClient) {
     if (this.isBrowser) {
       const at = this.getItem('access_token');
       this._isLoggedIn.set(!!at);
       this._user.set(at ? this.decodeUser(at) : null);
+      this.tokenSubject.next(at);
       this.scheduleProactiveRefresh();
     }
   }
@@ -85,6 +89,7 @@ export class Auth {
         }
         this._isLoggedIn.set(true);
         this._user.set(this.decodeUser(t.access_token));
+        this.tokenSubject.next(t.access_token ?? null);
         this.scheduleProactiveRefresh(true);
       }),
       tap(() => this.sync$().subscribe()),
@@ -107,6 +112,7 @@ export class Auth {
     this._isLoggedIn.set(false);
     this._user.set(null);
     this.refreshInFlight$ = undefined;
+    this.tokenSubject.next(null);
     this.wakeUp$.next();
   }
 
@@ -201,7 +207,7 @@ export class Auth {
       sub.unsubscribe();
       if (!cancel.cancelled) {
         this.getValidAccessToken$().subscribe({
-          next: () => this.scheduleProactiveRefresh(),
+          next: (tok) => this.tokenSubject.next(tok ?? this.accessToken),
           error: () => {}
         });
       }

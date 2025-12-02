@@ -83,12 +83,12 @@ namespace APLabApp.API.Infrastructure
                     var map = await db.Users
                         .AsNoTracking()
                         .Where(u => receiverIds.Contains(u.Id))
-                        .Select(u => new { u.Id, u.KeycloakId })
-                        .ToDictionaryAsync(x => x.Id, x => x.KeycloakId, ct);
+                        .Select(u => new { u.Id, Sub = u.KeycloakId == null ? null : u.KeycloakId.ToString() })
+                        .ToDictionaryAsync(x => x.Id, x => x.Sub?.Trim()?.ToLowerInvariant(), ct);
 
                     foreach (var f in feedbacks)
                     {
-                        if (!map.TryGetValue(f.ReceiverUserId, out var kc)) continue;
+                        if (!map.TryGetValue(f.ReceiverUserId, out var kc) || string.IsNullOrWhiteSpace(kc)) continue;
 
                         var payload = new
                         {

@@ -13,7 +13,7 @@ namespace APLabApp.API.Hubs
     {
         public override async Task OnConnectedAsync()
         {
-            var sub = Context.User?.FindFirst("sub")?.Value;
+            var sub = Context.User?.FindFirst("sub")?.Value?.Trim().ToLowerInvariant();
             if (!string.IsNullOrWhiteSpace(sub))
                 await Groups.AddToGroupAsync(Context.ConnectionId, $"kc:{sub}");
 
@@ -26,7 +26,7 @@ namespace APLabApp.API.Hubs
 
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
-            var sub = Context.User?.FindFirst("sub")?.Value;
+            var sub = Context.User?.FindFirst("sub")?.Value?.Trim().ToLowerInvariant();
             if (!string.IsNullOrWhiteSpace(sub))
                 await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"kc:{sub}");
 
@@ -36,5 +36,6 @@ namespace APLabApp.API.Hubs
 
             await base.OnDisconnectedAsync(exception);
         }
+
     }
 }

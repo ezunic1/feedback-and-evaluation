@@ -5,6 +5,7 @@ import { ToastContainer } from './shared/toast-container/toast-container';
 import { Notifications } from './services/notifications';
 import { Toasts } from './services/toasts';
 import { NewFeedbackEvent, DeleteRequestCreatedEvent } from './models/notifications';
+import { Auth } from './services/auth';
 
 @Component({
   selector: 'app-root',
@@ -20,36 +21,46 @@ export class App implements OnInit, OnDestroy {
   private toasts = inject(Toasts);
   private router = inject(Router);
   private platformId = inject(PLATFORM_ID);
+  private auth = inject(Auth);
   private subs: any[] = [];
 
   ngOnInit(): void {
-    if (isPlatformBrowser(this.platformId)) {
-      queueMicrotask(() => this.notifications.connect('https://localhost:7158'));
+    if (!isPlatformBrowser(this.platformId)) return;
 
-      this.subs.push(
-        this.notifications.newFeedback$.subscribe((p: NewFeedbackEvent) => {
-          this.toasts.show({
-            title: 'New feedback',
-            message: `Created ${new Date(p.createdAtUtc).toLocaleString()}`,
-            level: 'success',
-            actions: [{ label: 'Open', run: () => this.router.navigate(['/feedbacks', p.feedbackId]) }],
-            timeoutMs: 8000
-          });
-        })
-      );
+    this.notifications.connectWhenAuthenticated('');
 
-      this.subs.push(
-        this.notifications.deleteRequestCreated$.subscribe((p: DeleteRequestCreatedEvent) => {
-          this.toasts.show({
-            title: 'Delete request',
-            message: p.reason,
-            level: 'warning',
-            actions: [{ label: 'Review', run: () => this.router.navigate(['/admin/requests'], { queryParams: { selected: p.deleteRequestId, t: Date.now() } }) }],
-            timeoutMs: 10000
-          });
-        })
-      );
-    }
+    this.subs.push(
+      this.notifications.newFeedback$.subscribe((p: NewFeedbackEvent) => {
+        const role = this.auth.role();
+        const target =
+          role === 'admin'  ? ['/admin/feedbacks',  p.feedbackId] :
+          role === 'mentor' ? ['/mentor/feedbacks', p.feedbackId] :
+                              ['/intern/feedbacks', p.feedbackId];
+
+        this.toasts.show({
+          title: 'New feedback',
+          message: `Created ${new Date(p.createdAtUtc).toLocaleString()}`,
+          level: 'success',
+          actions: [{ label: 'Open', run: () => this.router.navigate(target) }],
+          timeoutMs: 8000
+        });
+      })
+    );
+
+    this.subs.push(
+      this.notifications.deleteRequestCreated$.subscribe((p: DeleteRequestCreatedEvent) => {
+        const isAdmin = this.auth.hasRole('admin');
+        this.toasts.show({
+          title: 'Delete request',
+          message: p.reason,
+          level: 'warning',
+          actions: isAdmin
+            ? [{ label: 'Review', run: () => this.router.navigate(['/admin/requests'], { queryParams: { selected: p.deleteRequestId, t: Date.now() } }) }]
+            : [], 
+          timeoutMs: 8000
+        });
+      })
+    );
   }
 
   ngOnDestroy(): void {
