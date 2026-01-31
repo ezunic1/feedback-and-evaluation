@@ -1,0 +1,10 @@
+# Ignore build artifacts if they ever end up committed
+**/bin/** linguist-generated=true
+**/obj/** linguist-generated=true
+
+# Ignore node_modules if present
+**/node_modules/** linguist-vendored
+
+# If you have compiled frontend output
+**/dist/** linguist-generated=true
+**/build/** linguist-generated=true
